@@ -1,1 +1,196 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>쇼츠플레이어</title>
+  
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
+  
+  <style>
+    body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+    
+    .swiper { width: 100%; max-width: 480px; height: 100vh; margin: 0 auto; background: #000; position: relative; }
+    .swiper-slide { width: 100%; height: 100%; background: #000; display: flex; flex-direction: column; justify-content: center; align-items: center; overflow: hidden; position: relative; }
 
+    .video-container {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      pointer-events: none;
+      z-index: 1;
+    }
+    
+    iframe { width: 100%; height: 100%; border: 0; }
+
+    /* [MODE: FULL] */
+    .slide-full .video-container iframe {
+      position: absolute;
+      top: 0; left: 50%;
+      width: 177.78vh; 
+      height: 100vh;
+      transform: translateX(-50%);
+      object-fit: cover;
+    }
+    @media (max-aspect-ratio: 9/16) {
+      .slide-full .video-container iframe {
+         width: 320%; height: 100%; left: -110%; transform: none; 
+      }
+    }
+
+    /* [MODE: FIT] */
+    .slide-fit {
+      display: flex; flex-direction: column; justify-content: space-between; background: #000;
+    }
+    .slide-fit .top-msg, .slide-fit .bottom-msg {
+      width: 100%; padding: 20px; box-sizing: border-box;
+      color: #fff; text-align: center; z-index: 10;
+      font-size: 18px; font-weight: bold; line-height: 1.5;
+      min-height: 15%; display: flex; align-items: center; justify-content: center;
+      background: #000;
+    }
+    .slide-fit .video-wrapper {
+      position: relative; width: 100%; padding-bottom: 56.25%;
+      background: #000; flex-grow: 1; display: flex; align-items: center;
+    }
+    .slide-fit .video-wrapper iframe {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    }
+
+    .overlay-start {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      z-index: 50; display: flex; justify-content: center; align-items: center;
+      background: rgba(0,0,0,0.4); cursor: pointer;
+    }
+    .start-btn { 
+      background: rgba(255, 255, 255, 0.9); color: #000; 
+      padding: 15px 30px; border-radius: 30px; 
+      font-weight: bold; font-size: 16px;
+    }
+    
+    .title-badge {
+      position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+      background: rgba(0,0,0,0.6); color: #fff; padding: 5px 15px;
+      border-radius: 15px; font-size: 14px; z-index: 20;
+      opacity: 0; transition: opacity 0.5s; pointer-events: none;
+    }
+    .swiper-slide-active .title-badge { opacity: 1; }
+
+  </style>
+</head>
+<body>
+
+<div class="swiper">
+  <div class="swiper-wrapper" id="slide-wrapper"></div>
+</div>
+
+<script src="https://www.youtube.com/iframe_api"></script>
+<script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
+<script>
+  const videoList = [{"videoId":"jN_tDQOP0BQ","title":"","viewMode":"full","start":0,"end":0,"topText":"","bottomText":""}];
+  
+  let swiper;
+  let players = {};
+  let isGlobalMuted = true;
+
+  function initApp() {
+    const wrapper = document.getElementById('slide-wrapper');
+    
+    videoList.forEach((v, idx) => {
+      const slide = document.createElement('div');
+      slide.className = 'swiper-slide';
+      
+      if (v.viewMode === 'fit') {
+        slide.classList.add('slide-fit');
+        slide.innerHTML = `
+          <div class="top-msg">${v.topText}</div>
+          <div class="video-wrapper">
+            <div id="player-${idx}"></div>
+          </div>
+          <div class="bottom-msg">${v.bottomText}</div>
+        `;
+      } else {
+        slide.classList.add('slide-full');
+        slide.innerHTML = `
+          <div class="video-container">
+            <div id="player-${idx}"></div>
+          </div>
+          <div class="title-badge">${v.title}</div>
+        `;
+      }
+
+      if (idx === 0) {
+        const ov = document.createElement('div');
+        ov.className = 'overlay-start';
+        ov.id = 'start-overlay';
+        ov.innerHTML = '<div class="start-btn">🎵 터치하여 시작하기</div>';
+        ov.onclick = () => startAll();
+        slide.appendChild(ov);
+      }
+
+      wrapper.appendChild(slide);
+    });
+
+    swiper = new Swiper('.swiper', {
+      direction: 'vertical',
+      effect: 'slide',
+      speed: 400,
+      on: {
+        slideChange: function () {
+          const idx = this.activeIndex;
+          playVideo(idx);
+          pauseVideo(this.previousIndex);
+        }
+      }
+    });
+  }
+
+  function onYouTubeIframeAPIReady() {
+    videoList.forEach((v, idx) => {
+      players[idx] = new YT.Player('player-' + idx, {
+        videoId: v.videoId,
+        playerVars: {
+          'autoplay': 0, 'controls': 0, 'rel': 0, 'showinfo': 0, 'modestbranding': 1,
+          'playsinline': 1, 'fs': 0, 'disablekb': 1,
+          'start': v.start, 'end': v.end > 0 ? v.end : undefined
+        },
+        events: {
+          'onStateChange': (event) => onPlayerStateChange(event, idx)
+        }
+      });
+    });
+  }
+
+  function onPlayerStateChange(event, idx) {
+    if (event.data === YT.PlayerState.ENDED) {
+      if(idx < videoList.length - 1) {
+        swiper.slideNext();
+      } else {
+        swiper.slideTo(0);
+      }
+    }
+  }
+
+  function startAll() {
+    document.getElementById('start-overlay').style.display = 'none';
+    isGlobalMuted = false;
+    playVideo(0);
+  }
+
+  function playVideo(idx) {
+    if (players[idx] && typeof players[idx].playVideo === 'function') {
+      const v = videoList[idx];
+      players[idx].seekTo(v.start || 0);
+      players[idx].playVideo();
+      if (!isGlobalMuted) players[idx].unMute();
+    }
+  }
+
+  function pauseVideo(idx) {
+    if (players[idx] && typeof players[idx].pauseVideo === 'function') {
+      players[idx].pauseVideo();
+    }
+  }
+
+  initApp();
+</script>
+</body>
+</html>

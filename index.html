@@ -45,10 +45,9 @@
     
     .slide-fit .top-msg, .slide-fit .bottom-msg {
       width: 100%; 
-      padding: 10px 15px; 
+      padding: 10px 10px; /* 좌우 여백 최소화 */
       box-sizing: border-box;
       color: #fff; text-align: center; z-index: 10;
-      /* 폰트 굵기 강화 */
       font-weight: 800; 
       flex-shrink: 0; 
       background: #000;
@@ -56,7 +55,7 @@
       display: flex; align-items: center; justify-content: center;
       white-space: pre-wrap;
       word-break: keep-all; 
-      line-height: 1.2; /* 줄간격 좁힘 */
+      line-height: 1.1; /* 줄간격 타이트하게 */
     }
 
     .slide-fit .top-msg { 
@@ -64,18 +63,14 @@
       font-size: 20px; 
     }
     
-    /* [하단 자막 스타일 강화] */
+    /* [하단 자막: 가로폭 꽉 채우기 위한 설정] */
     .slide-fit .bottom-msg { 
-      min-height: 100px; /* 최소 높이 확보 */
-      max-height: 35vh; 
-      overflow-y: hidden; /* 스크롤바 숨김 */
-      color: #FFEB3B; 
+      min-height: 100px;
+      /* 자막 영역을 더 넓게 잡음 */
       padding-bottom: 30px; 
-      
-      /* 글자 테두리 (Shadow) 추가하여 가독성 극대화 */
+      color: #FFEB3B; 
       text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
-      
-      transition: font-size 0.2s ease;
+      transition: font-size 0.1s;
     }
 
     .slide-fit .video-wrapper {
@@ -123,7 +118,8 @@
       let html = '';
       if (v.viewMode === 'fit') {
         slide.classList.add('slide-fit');
-        const textLen = v.bottomText ? v.bottomText.length : 0;
+        // 실제 텍스트 길이와 내용을 데이터 속성으로 저장
+        const textLen = v.bottomText ? v.bottomText.replace(/s/g, '').length : 0; 
         
         html = `
           <div class="top-msg">${v.topText}</div>
@@ -131,7 +127,7 @@
             <div id="player-${idx}"></div>
             ${interactionLayer}
           </div>
-          <div class="bottom-msg" id="bottom-msg-${idx}" data-len="${textLen}">${v.bottomText}</div>`;
+          <div class="bottom-msg" id="bottom-msg-${idx}" data-text="${v.bottomText}" data-len="${textLen}">${v.bottomText}</div>`;
       } else {
         slide.classList.add('slide-full');
         html = `
@@ -165,21 +161,28 @@
     loadYoutubeApi();
   }
 
-  // [수정] 자막 크기 대폭 확대 로직
+  // [핵심] 자막 크기 자동 최적화 함수 (가로폭 꽉 채우기)
   function adjustSubtitleSizes() {
     document.querySelectorAll('.bottom-msg').forEach(el => {
-      const len = parseInt(el.getAttribute('data-len') || 0);
-      if (len === 0) return;
+      const text = el.getAttribute('data-text');
+      if (!text) return;
+      const len = text.length;
+      
+      // 글자 수에 따라 화면 너비(vw)를 꽉 채울 수 있는 폰트 크기 계산
+      // 5글자 이하면 15vw (초대형)
+      // 20글자면 줄바꿈 고려해서 적절히 조절
+      let sizeVw = 6.0;
 
-      // vw 단위: 화면 너비 기준
-      let sizeVw = 7.0; // 기본
-
-      if (len <= 10) {
-        sizeVw = 12.0; // [대폭 확대] 10글자 이하는 엄청 크게
-      } else if (len <= 30) {
-        sizeVw = 8.0;  // [확대] 보통 문장은 크게
+      if (len <= 5) {
+        sizeVw = 16.0; // 5글자 이하: 화면 터질듯한 크기
+      } else if (len <= 10) {
+        sizeVw = 11.0; // 10글자 이하: 매우 큼
+      } else if (len <= 20) {
+        sizeVw = 8.5;  // 20글자 이하: 큼
+      } else if (len <= 40) {
+        sizeVw = 6.5;  // 두 줄 정도 예상
       } else {
-        sizeVw = 6.0;  // [확대] 긴 문장도 잘 보이게
+        sizeVw = 5.0;  // 긴 문장
       }
 
       el.style.fontSize = sizeVw + 'vw';
@@ -202,7 +205,7 @@
           'autoplay': 1, 'mute': 1, 'controls': 0, 'rel': 0, 
           'showinfo': 0, 'modestbranding': 1, 'playsinline': 1, 
           'fs': 0, 'disablekb': 1, 'iv_load_policy': 3,
-          'cc_load_policy': 1, 
+          'cc_load_policy': 0, // [중요] 유튜브 자체 자막 끄기 (시트 자막 사용)
           'start': v.start, 'end': v.end > 0 ? v.end : undefined,
           'origin': window.location.origin
         },

@@ -13,13 +13,20 @@
     .swiper { width: 100%; max-width: 480px; height: 100vh; margin: 0 auto; background: #000; position: relative; }
     .swiper-slide { width: 100%; height: 100%; background: #000; display: flex; flex-direction: column; justify-content: center; align-items: center; overflow: hidden; position: relative; }
 
+    /* 비디오 공통 컨테이너 */
     .video-container {
       position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-      pointer-events: none;
       z-index: 1;
     }
     
-    iframe { width: 100%; height: 100%; border: 0; }
+    iframe { width: 100%; height: 100%; border: 0; pointer-events: none; /* 유튜브 UI 클릭 방지 */ }
+
+    /* [투명 터치 레이어] - 화면 터치 시 소리 켜기용 */
+    .interaction-layer {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      z-index: 50; cursor: pointer;
+      background: rgba(0,0,0,0); /* 완전 투명 */
+    }
 
     /* [MODE: FULL] 쇼츠 스타일 */
     .slide-full .video-container iframe {
@@ -29,7 +36,6 @@
       height: 100vh;
       transform: translateX(-50%);
       object-fit: cover;
-      pointer-events: none; /* UI 조작 방지 */
     }
     @media (max-aspect-ratio: 9/16) {
       .slide-full .video-container iframe {
@@ -51,21 +57,17 @@
     .slide-fit .video-wrapper {
       position: relative; 
       width: 100%; 
-      padding-bottom: 56.25%; /* 16:9 비율 공간 확보 */
+      padding-bottom: 56.25%; 
       background: #000; 
       flex-grow: 1; 
       display: flex; 
-      align-items: center;
-      overflow: hidden; /* 중요: 확대된 영상의 넘치는 부분 자르기 */
+      align-items: center; justify-content: center;
+      overflow: hidden; 
     }
     .slide-fit .video-wrapper iframe {
       position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-      /* 1.35배 확대하여 유튜브 상단 타이틀바와 하단 컨트롤바를 화면 밖으로 밀어냄 
-         pointer-events: none으로 클릭 방지 (불필요한 UI 노출 방지)
-      */
-      transform: scale(1.35); 
+      transform: scale(1.35); /* 1.35배 확대하여 UI 숨김 */
       transform-origin: center center;
-      pointer-events: none; 
     }
 
     /* 타이틀 배지 (Full 모드용) */
@@ -88,14 +90,10 @@
 <script src="https://www.youtube.com/iframe_api"></script>
 <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
 <script>
-  const videoList = [{"videoId":"jN_tDQOP0BQ","title":"시동위키","viewMode":"fit","start":3,"end":10,"topText":"테스트 페이지","bottomText":"반갑습니다."}];
-  
+  const videoList = [{"videoId":"jN_tDQOP0BQ","title":"시동위키","viewMode":"fit","start":3,"end":25,"topText":"테스트 페이지","bottomText":"반갑습니다."}];
   let swiper;
   let players = {};
   
-  // 브라우저 정책 대응: 일단 음소거로 시작 후 소리 켜기 시도
-  let isGlobalMuted = true; 
-
   function initApp() {
     const wrapper = document.getElementById('slide-wrapper');
     
@@ -103,12 +101,16 @@
       const slide = document.createElement('div');
       slide.className = 'swiper-slide';
       
+      // 터치 레이어: 클릭하면 소리 켜짐
+      const interactionLayer = `<div class="interaction-layer" onclick="unmuteVideo(${idx})"></div>`;
+
       if (v.viewMode === 'fit') {
         slide.classList.add('slide-fit');
         slide.innerHTML = `
           <div class="top-msg">${v.topText}</div>
           <div class="video-wrapper">
             <div id="player-${idx}"></div>
+            ${interactionLayer}
           </div>
           <div class="bottom-msg">${v.bottomText}</div>
         `;
@@ -117,6 +119,7 @@
         slide.innerHTML = `
           <div class="video-container">
             <div id="player-${idx}"></div>
+            ${interactionLayer}
           </div>
           <div class="title-badge">${v.title}</div>
         `;
@@ -128,11 +131,12 @@
       direction: 'vertical',
       effect: 'slide',
       speed: 400,
-      initialSlide: 0, // 항상 처음부터 시작
+      observer: true,
+      observeParents: true,
       on: {
         init: function() {
-           // 초기화 시 0번으로 확실히 이동
-           this.slideTo(0, 0);
+           // 새로고침 시 0번으로 초기화
+           setTimeout(() => this.slideTo(0, 0), 100);
         },
         slideChange: function () {
           const idx = this.activeIndex;
@@ -148,24 +152,24 @@
       players[idx] = new YT.Player('player-' + idx, {
         videoId: v.videoId,
         playerVars: {
-          'autoplay': 0, 
-          'controls': 0, // 컨트롤바 숨김
-          'rel': 0,      // 관련 영상 최소화
+          'autoplay': 1,  // 자동재생 ON
+          'mute': 1,      // 음소거 ON (중요: 그래야 자동재생 됨)
+          'controls': 0, 
+          'rel': 0, 
           'showinfo': 0, 
           'modestbranding': 1,
           'playsinline': 1, 
           'fs': 0, 
-          'disablekb': 1,
-          'iv_load_policy': 3, // 주석 숨김
+          'disablekb': 1, 
+          'iv_load_policy': 3,
           'start': v.start, 
           'end': v.end > 0 ? v.end : undefined
         },
         events: {
           'onReady': (event) => {
-            // 첫 번째 영상 준비되면 즉시 재생
             if (idx === 0) {
-              event.target.mute(); // 일단 음소거로 재생 (브라우저 차단 방지)
-              event.target.playVideo();
+              event.target.mute();      // 확실하게 음소거
+              event.target.playVideo(); // 재생
             }
           },
           'onStateChange': (event) => onPlayerStateChange(event, idx)
@@ -175,21 +179,23 @@
   }
 
   function onPlayerStateChange(event, idx) {
-    // 재생 시작 시(PLAYING) 소리 켜기 시도
-    if (event.data === YT.PlayerState.PLAYING) {
-       // 만약 음소거 상태라면 소리 켜기 시도
-       if (players[idx].isMuted()) {
-         players[idx].unMute(); 
-         // 주의: 사용자 인터랙션(터치) 없으면 브라우저가 다시 Mute 시킬 수 있음
-       }
-    }
-
-    // 영상 끝나면(ENDED) -> 바로 다음 슬라이드 (추천화면 볼 틈 없이)
+    // 영상 끝나면 바로 다음으로 이동
     if (event.data === YT.PlayerState.ENDED) {
       if(idx < videoList.length - 1) {
         swiper.slideNext();
       } else {
-        swiper.slideTo(0); // 마지막이면 처음으로
+        swiper.slideTo(0);
+      }
+    }
+  }
+
+  // 화면 터치 시 소리 켜기
+  function unmuteVideo(idx) {
+    if (players[idx]) {
+      players[idx].unMute();
+      // 만약 멈춰있다면 재생도 같이
+      if (players[idx].getPlayerState() !== YT.PlayerState.PLAYING) {
+        players[idx].playVideo();
       }
     }
   }
@@ -199,6 +205,10 @@
       const v = videoList[idx];
       players[idx].seekTo(v.start || 0);
       players[idx].playVideo();
+      
+      // 슬라이드 넘어갈 때도 일단은 음소거 유지 (사용자가 켰으면 켜짐)
+      // 만약 슬라이드 넘길 때 자동으로 소리 켜고 싶으면 아래 주석 해제
+      // players[idx].unMute(); 
     }
   }
 

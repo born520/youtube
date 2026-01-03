@@ -25,18 +25,20 @@
     .subtitle-overlay {
       position: absolute; 
       left: 50%; transform: translateX(-50%);
-      bottom: 10%; 
-      width: 90%; 
+      bottom: 5%; 
+      width: 94%; 
       text-align: center;
       color: #fff; 
       z-index: 60; 
       pointer-events: none; 
       
-      text-shadow: 2px 2px 4px rgba(0,0,0,0.8), -1px -1px 0 #000;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.8), -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
       font-weight: 800; 
       line-height: 1.3;
       transition: all 0.1s;
       
+      max-height: 30vh;
+      overflow: hidden; 
       opacity: 0; 
     }
     .subtitle-overlay.active { opacity: 1; }
@@ -69,8 +71,7 @@
     .slide-fit .video-wrapper iframe {
       position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; 
     }
-    .slide-fit .subtitle-overlay { bottom: 5%; }
-
+    
     .title-badge {
       position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
       background: rgba(0,0,0,0.6); color: #fff; padding: 5px 15px;
@@ -105,7 +106,6 @@
       slide.className = 'swiper-slide';
       const interactionLayer = `<div class="interaction-layer" onclick="activateSound(${idx})"></div>`;
 
-      // SRT 자막 파싱
       const parsedSubs = parseSRT(v.subtitleData);
       subData[idx] = parsedSubs;
 
@@ -154,15 +154,12 @@
 
   function parseSRT(srtText) {
     if (!srtText) return [];
-    
     if (!srtText.includes('-->')) {
        return [{ start: 0, end: 99999, text: srtText }];
     }
-
     const pattern = /(\d+)\n(\d{2}:\d{2}:\d{2},\d{3}) --> (\d{2}:\d{2}:\d{2},\d{3})\n([\s\S]*?)(?=\n\n|\n$|$)/g;
     const result = [];
     let match;
-    
     while ((match = pattern.exec(srtText + '\n\n')) !== null) {
       result.push({
         start: timeToSeconds(match[2]),
@@ -181,17 +178,14 @@
 
   function startSubtitleSync(idx) {
     if (subInterval) clearInterval(subInterval);
-    
     const subs = subData[idx];
     const el = document.getElementById('sub-overlay-' + idx);
     const player = players[idx];
-
     if (!subs || subs.length === 0 || !player || !el) return;
 
     subInterval = setInterval(() => {
       if (typeof player.getCurrentTime !== 'function') return;
       const curTime = player.getCurrentTime();
-      
       const currentSub = subs.find(s => curTime >= s.start && curTime <= s.end);
       
       if (currentSub) {
@@ -208,11 +202,16 @@
   }
 
   function adjustFontSize(el, len) {
-    let sizeVw = 6.0;
-    if (len <= 5) sizeVw = 14.0;
-    else if (len <= 15) sizeVw = 9.0;
-    else if (len <= 30) sizeVw = 7.0;
-    else sizeVw = 5.0;
+    let sizeVw = 5.0; 
+    if (len <= 5) {
+      sizeVw = 8.0; 
+    } else if (len <= 15) {
+      sizeVw = 6.0; 
+    } else if (len <= 30) {
+      sizeVw = 5.0; 
+    } else {
+      sizeVw = 4.0; 
+    }
     el.style.fontSize = sizeVw + 'vw';
   }
 
@@ -242,9 +241,7 @@
               if (isGlobalSoundOn) event.target.unMute();
               else event.target.mute();
               event.target.playVideo();
-              
               startSubtitleSync(0);
-              
               setTimeout(() => {
                 const state = event.target.getPlayerState();
                 if (state !== YT.PlayerState.PLAYING) event.target.playVideo();
@@ -258,11 +255,8 @@
   };
 
   function onPlayerStateChange(event, idx) {
-    if (event.data === YT.PlayerState.PLAYING) {
-       startSubtitleSync(idx); 
-    } else {
-       if (subInterval) clearInterval(subInterval); 
-    }
+    if (event.data === YT.PlayerState.PLAYING) startSubtitleSync(idx); 
+    else if (subInterval) clearInterval(subInterval); 
 
     if (event.data === YT.PlayerState.ENDED) {
       if(idx < videoList.length - 1) swiper.slideNext();
@@ -294,9 +288,7 @@
   }
 
   function pauseVideo(idx) {
-    if (players[idx]) {
-       typeof players[idx].pauseVideo === 'function' && players[idx].pauseVideo();
-    }
+    if (players[idx]) typeof players[idx].pauseVideo === 'function' && players[idx].pauseVideo();
     if (subInterval) clearInterval(subInterval); 
   }
 

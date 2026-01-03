@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>쇼츠플레이어</title>
+  <title>플레이어</title>
   
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
   
   <style>
-    body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+    body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; font-family: -apple-system, sans-serif; }
     
     .swiper { width: 100%; max-width: 480px; height: 100vh; margin: 0 auto; background: #000; position: relative; }
     .swiper-slide { width: 100%; height: 100%; background: #000; display: flex; flex-direction: column; justify-content: center; align-items: center; overflow: hidden; position: relative; }
@@ -21,7 +21,7 @@
     
     iframe { width: 100%; height: 100%; border: 0; }
 
-    /* [MODE: FULL] */
+    /* [MODE: FULL] 쇼츠 스타일 */
     .slide-full .video-container iframe {
       position: absolute;
       top: 0; left: 50%;
@@ -29,6 +29,7 @@
       height: 100vh;
       transform: translateX(-50%);
       object-fit: cover;
+      pointer-events: none; /* UI 조작 방지 */
     }
     @media (max-aspect-ratio: 9/16) {
       .slide-full .video-container iframe {
@@ -36,7 +37,7 @@
       }
     }
 
-    /* [MODE: FIT] */
+    /* [MODE: FIT] 가로 영상 중앙 배치 + 상하 텍스트 */
     .slide-fit {
       display: flex; flex-direction: column; justify-content: space-between; background: #000;
     }
@@ -48,24 +49,26 @@
       background: #000;
     }
     .slide-fit .video-wrapper {
-      position: relative; width: 100%; padding-bottom: 56.25%;
-      background: #000; flex-grow: 1; display: flex; align-items: center;
+      position: relative; 
+      width: 100%; 
+      padding-bottom: 56.25%; /* 16:9 비율 공간 확보 */
+      background: #000; 
+      flex-grow: 1; 
+      display: flex; 
+      align-items: center;
+      overflow: hidden; /* 중요: 확대된 영상의 넘치는 부분 자르기 */
     }
     .slide-fit .video-wrapper iframe {
       position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      /* 1.35배 확대하여 유튜브 상단 타이틀바와 하단 컨트롤바를 화면 밖으로 밀어냄 
+         pointer-events: none으로 클릭 방지 (불필요한 UI 노출 방지)
+      */
+      transform: scale(1.35); 
+      transform-origin: center center;
+      pointer-events: none; 
     }
 
-    .overlay-start {
-      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-      z-index: 50; display: flex; justify-content: center; align-items: center;
-      background: rgba(0,0,0,0.4); cursor: pointer;
-    }
-    .start-btn { 
-      background: rgba(255, 255, 255, 0.9); color: #000; 
-      padding: 15px 30px; border-radius: 30px; 
-      font-weight: bold; font-size: 16px;
-    }
-    
+    /* 타이틀 배지 (Full 모드용) */
     .title-badge {
       position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
       background: rgba(0,0,0,0.6); color: #fff; padding: 5px 15px;
@@ -85,11 +88,13 @@
 <script src="https://www.youtube.com/iframe_api"></script>
 <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
 <script>
-  const videoList = [{"videoId":"jN_tDQOP0BQ","title":"시동위키","viewMode":"fit","start":3,"end":10,"topText":"테스트 페이지","bottomText":"반갑습니다."}];
+  const videoList = [{"videoId":"jN_tDQOP0BQ","title":"시동위키","viewMode":"fit","start":3,"end":30,"topText":"테스트 페이지","bottomText":"반갑습니다."}];
   
   let swiper;
   let players = {};
-  let isGlobalMuted = true;
+  
+  // 브라우저 정책 대응: 일단 음소거로 시작 후 소리 켜기 시도
+  let isGlobalMuted = true; 
 
   function initApp() {
     const wrapper = document.getElementById('slide-wrapper');
@@ -116,16 +121,6 @@
           <div class="title-badge">${v.title}</div>
         `;
       }
-
-      if (idx === 0) {
-        const ov = document.createElement('div');
-        ov.className = 'overlay-start';
-        ov.id = 'start-overlay';
-        ov.innerHTML = '<div class="start-btn">🎵 터치하여 시작하기</div>';
-        ov.onclick = () => startAll();
-        slide.appendChild(ov);
-      }
-
       wrapper.appendChild(slide);
     });
 
@@ -133,7 +128,12 @@
       direction: 'vertical',
       effect: 'slide',
       speed: 400,
+      initialSlide: 0, // 항상 처음부터 시작
       on: {
+        init: function() {
+           // 초기화 시 0번으로 확실히 이동
+           this.slideTo(0, 0);
+        },
         slideChange: function () {
           const idx = this.activeIndex;
           playVideo(idx);
@@ -148,11 +148,26 @@
       players[idx] = new YT.Player('player-' + idx, {
         videoId: v.videoId,
         playerVars: {
-          'autoplay': 0, 'controls': 0, 'rel': 0, 'showinfo': 0, 'modestbranding': 1,
-          'playsinline': 1, 'fs': 0, 'disablekb': 1,
-          'start': v.start, 'end': v.end > 0 ? v.end : undefined
+          'autoplay': 0, 
+          'controls': 0, // 컨트롤바 숨김
+          'rel': 0,      // 관련 영상 최소화
+          'showinfo': 0, 
+          'modestbranding': 1,
+          'playsinline': 1, 
+          'fs': 0, 
+          'disablekb': 1,
+          'iv_load_policy': 3, // 주석 숨김
+          'start': v.start, 
+          'end': v.end > 0 ? v.end : undefined
         },
         events: {
+          'onReady': (event) => {
+            // 첫 번째 영상 준비되면 즉시 재생
+            if (idx === 0) {
+              event.target.mute(); // 일단 음소거로 재생 (브라우저 차단 방지)
+              event.target.playVideo();
+            }
+          },
           'onStateChange': (event) => onPlayerStateChange(event, idx)
         }
       });
@@ -160,19 +175,23 @@
   }
 
   function onPlayerStateChange(event, idx) {
+    // 재생 시작 시(PLAYING) 소리 켜기 시도
+    if (event.data === YT.PlayerState.PLAYING) {
+       // 만약 음소거 상태라면 소리 켜기 시도
+       if (players[idx].isMuted()) {
+         players[idx].unMute(); 
+         // 주의: 사용자 인터랙션(터치) 없으면 브라우저가 다시 Mute 시킬 수 있음
+       }
+    }
+
+    // 영상 끝나면(ENDED) -> 바로 다음 슬라이드 (추천화면 볼 틈 없이)
     if (event.data === YT.PlayerState.ENDED) {
       if(idx < videoList.length - 1) {
         swiper.slideNext();
       } else {
-        swiper.slideTo(0);
+        swiper.slideTo(0); // 마지막이면 처음으로
       }
     }
-  }
-
-  function startAll() {
-    document.getElementById('start-overlay').style.display = 'none';
-    isGlobalMuted = false;
-    playVideo(0);
   }
 
   function playVideo(idx) {
@@ -180,7 +199,6 @@
       const v = videoList[idx];
       players[idx].seekTo(v.start || 0);
       players[idx].playVideo();
-      if (!isGlobalMuted) players[idx].unMute();
     }
   }
 

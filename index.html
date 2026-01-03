@@ -43,7 +43,7 @@
       }
     }
 
-    /* [MODE: FIT] 가로 영상 중앙 배치 + 상하 텍스트 */
+    /* [MODE: FIT] 레이아웃 수정 (Flex 높이 문제 해결) */
     .slide-fit {
       display: flex; flex-direction: column; justify-content: space-between; background: #000;
     }
@@ -51,29 +51,29 @@
       width: 100%; padding: 20px; box-sizing: border-box;
       color: #fff; text-align: center; z-index: 10;
       font-size: 18px; font-weight: bold; line-height: 1.5;
-      min-height: 15%; display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; /* 텍스트 영역 줄어들지 않게 고정 */
       background: #000;
+      min-height: 60px; /* 최소 높이 확보 */
     }
     
     .slide-fit .video-wrapper {
       position: relative; 
       width: 100%; 
-      /* [수정] Fit 모드에서 확대(Zoom) 제거를 위해 높이 자동 조절 */
-      flex-grow: 1; 
+      flex-grow: 1; /* 남은 공간 모두 차지 */
+      height: 100%; /* 중요: 높이 100% 강제 */
       display: flex; 
       align-items: center; justify-content: center;
       overflow: hidden; 
     }
     .slide-fit .video-wrapper iframe {
-      /* [수정] 확대 제거: 원본 비율 유지하며 컨테이너에 맞춤 */
-      position: relative; 
+      position: absolute; /* absolute로 변경하여 부모 크기에 맞춤 */
+      top: 0; left: 0;
       width: 100%; 
       height: 100%;
-      object-fit: contain; /* 비율 유지 */
-      transform: none; /* 확대 제거 */
+      object-fit: contain; /* 비율 유지하며 꽉 채우기 */
     }
 
-    /* 타이틀 배지 (Full 모드용) */
+    /* 타이틀 배지 */
     .title-badge {
       position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
       background: rgba(0,0,0,0.6); color: #fff; padding: 5px 15px;
@@ -133,14 +133,8 @@
       direction: 'vertical',
       effect: 'slide',
       speed: 400,
-      observer: true,
-      observeParents: true,
-      // [수정] 마지막에서 처음으로 루프 기능 활성화
       loop: false, 
       on: {
-        init: function() {
-           setTimeout(() => this.slideTo(0, 0), 100);
-        },
         slideChange: function () {
           const idx = this.activeIndex;
           playVideo(idx);
@@ -158,7 +152,7 @@
           'autoplay': 1,
           'mute': 1,
           'controls': 0, 
-          'rel': 0, // 추천 영상 관련 최소화
+          'rel': 0, 
           'showinfo': 0, 
           'modestbranding': 1,
           'playsinline': 1, 
@@ -170,9 +164,12 @@
         },
         events: {
           'onReady': (event) => {
-            if (idx === 0) {
-              event.target.mute();
-              event.target.playVideo();
+            // [중요] 새로고침 시 즉시 재생 보장
+            // 현재 활성화된 슬라이드가 이 플레이어라면 즉시 재생
+            if (swiper && swiper.activeIndex === idx) {
+               event.target.mute();
+               event.target.seekTo(v.start || 0);
+               event.target.playVideo();
             }
           },
           'onStateChange': (event) => onPlayerStateChange(event, idx)
@@ -182,13 +179,20 @@
   }
 
   function onPlayerStateChange(event, idx) {
-    // [수정] 영상이 끝나면(ENDED) 추천 화면 뜨기 전에 즉시 다음으로 이동
+    // 영상 종료(ENDED) 시 처리
     if (event.data === YT.PlayerState.ENDED) {
       if(idx < videoList.length - 1) {
+        // 다음 영상이 있으면 이동
         swiper.slideNext();
       } else {
-        // [수정] 마지막 영상이면 처음으로 돌아가서 무한 반복 (Loop)
+        // [중요] 마지막 영상이면 처음으로 루프
         swiper.slideTo(0);
+        
+        // 영상이 1개뿐이거나 이미 0번일 경우, slideTo가 이벤트를 발생시키지 않을 수 있음
+        // 따라서 강제로 0번을 다시 재생시킴
+        if (swiper.activeIndex === 0) {
+           playVideo(0);
+        }
       }
     }
   }

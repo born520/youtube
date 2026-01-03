@@ -46,7 +46,7 @@
     /* [MODE: FIT] 레이아웃 강화 */
     .slide-fit {
       display: flex; flex-direction: column; justify-content: space-between; background: #000;
-      height: 100vh; /* 높이 강제 지정 */
+      height: 100vh;
     }
     .slide-fit .top-msg, .slide-fit .bottom-msg {
       width: 100%; padding: 20px; box-sizing: border-box;
@@ -60,7 +60,7 @@
     .slide-fit .video-wrapper {
       position: relative; 
       width: 100%; 
-      flex: 1; /* flex-grow 대신 flex: 1 사용으로 호환성 확보 */
+      flex: 1; 
       display: flex; 
       align-items: center; justify-content: center;
       overflow: hidden; 
@@ -98,6 +98,9 @@
   let swiper;
   let players = {};
   
+  // [핵심] 소리 켜짐 상태를 기억하는 변수 (기본값: 꺼짐)
+  let isGlobalSoundOn = false;
+
   function initApp() {
     const wrapper = document.getElementById('slide-wrapper');
     
@@ -105,7 +108,8 @@
       const slide = document.createElement('div');
       slide.className = 'swiper-slide';
       
-      const interactionLayer = `<div class="interaction-layer" onclick="unmuteVideo(${idx})"></div>`;
+      // 터치 시: 소리 켜기 + 재생 안된 상태면 재생 시도
+      const interactionLayer = `<div class="interaction-layer" onclick="activateSound(${idx})"></div>`;
 
       if (v.viewMode === 'fit') {
         slide.classList.add('slide-fit');
@@ -138,7 +142,7 @@
       on: {
         slideChange: function () {
           const idx = this.activeIndex;
-          playVideo(idx);
+          playVideo(idx); // 슬라이드 이동 시 재생
           pauseVideo(this.previousIndex);
         }
       }
@@ -147,13 +151,12 @@
 
   function onYouTubeIframeAPIReady() {
     videoList.forEach((v, idx) => {
-      // 캐시 문제 방지를 위해 origin 추가
       players[idx] = new YT.Player('player-' + idx, {
         videoId: v.videoId,
         host: 'https://www.youtube.com',
         playerVars: {
           'autoplay': 1,
-          'mute': 1,
+          'mute': 1, // 초기 로딩은 무조건 음소거 (필수)
           'controls': 0, 
           'rel': 0, 
           'showinfo': 0, 
@@ -164,22 +167,14 @@
           'iv_load_policy': 3,
           'start': v.start, 
           'end': v.end > 0 ? v.end : undefined,
-          'origin': window.location.origin // 보안 정책 준수
+          'origin': window.location.origin
         },
         events: {
           'onReady': (event) => {
-            // [중요 수정] 바로 재생하지 않고 약간의 지연을 둠 (새로고침 시 DOM 로딩 대기)
+            // [새로고침 해결] 첫 번째 영상은 로드 되자마자 '음소거'로 즉시 재생
             if (idx === 0) {
               event.target.mute(); 
-              setTimeout(() => {
-                event.target.playVideo();
-                // 1초 뒤에 한번 더 확인 (재생 실패 대비)
-                setTimeout(() => {
-                    if (event.target.getPlayerState() !== YT.PlayerState.PLAYING) {
-                        event.target.playVideo();
-                    }
-                }, 1000);
-              }, 500); 
+              event.target.playVideo();
             }
           },
           'onStateChange': (event) => onPlayerStateChange(event, idx)
@@ -189,30 +184,43 @@
   }
 
   function onPlayerStateChange(event, idx) {
+    // 영상 끝나면 다음으로 이동
     if (event.data === YT.PlayerState.ENDED) {
       if(idx < videoList.length - 1) {
         swiper.slideNext();
       } else {
         swiper.slideTo(0);
-        // 마지막->처음 루프 시 재생이 씹히는 경우 방지
         setTimeout(() => playVideo(0), 300);
       }
     }
   }
 
-  function unmuteVideo(idx) {
+  // [기능 추가] 화면 터치 시 소리 활성화 및 상태 기억
+  function activateSound(idx) {
+    isGlobalSoundOn = true; // 이제부터 소리 켬 상태 유지
+    
     if (players[idx]) {
       players[idx].unMute();
+      // 만약 멈춰있거나 로딩 실패 상태라면 재생 시도
       if (players[idx].getPlayerState() !== YT.PlayerState.PLAYING) {
         players[idx].playVideo();
       }
     }
   }
 
+  // 재생 함수: 글로벌 소리 설정에 따라 동작
   function playVideo(idx) {
     if (players[idx] && typeof players[idx].playVideo === 'function') {
       const v = videoList[idx];
-      players[idx].mute(); // 자동재생 성공률을 높이기 위해 일단 뮤트
+      
+      // [핵심 로직] 사용자가 소리를 켠 적이 있으면(Unmute) 소리 켜고 재생
+      // 아니면(새로고침 직후 등) 음소거 상태로 재생
+      if (isGlobalSoundOn) {
+        players[idx].unMute();
+      } else {
+        players[idx].mute();
+      }
+      
       players[idx].seekTo(v.start || 0);
       players[idx].playVideo();
     }
@@ -224,7 +232,7 @@
     }
   }
 
-  // DOM 로드 완료 후 앱 시작 (안전장치)
+  // 안전한 초기화 실행
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initApp);
   } else {

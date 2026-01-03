@@ -8,11 +8,11 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
   
   <style>
-    /* [중요] 모바일 브라우저 주소창 높이 대응 (dvh 사용) */
+    /* [dvh 적용] 모바일 브라우저 높이 이슈 해결 */
     body, html { margin: 0; padding: 0; width: 100%; background: #000; overflow: hidden; font-family: -apple-system, sans-serif; }
     body, html, .swiper, .swiper-slide { 
-      height: 100vh; /* 구형 브라우저 fallback */
-      height: 100dvh; /* 최신 모바일 브라우저 대응 (Dynamic Viewport Height) */
+      height: 100vh; 
+      height: 100dvh; 
     }
 
     .swiper { width: 100%; max-width: 480px; margin: 0 auto; background: #000; position: relative; }
@@ -32,43 +32,48 @@
 
     .slide-full .video-container iframe {
       position: absolute; top: 0; left: 50%;
-      width: 177.78vh; height: 100vh; height: 100dvh;
+      width: 177.78vh; height: 100dvh;
       transform: translateX(-50%); object-fit: cover;
     }
     @media (max-aspect-ratio: 9/16) {
       .slide-full .video-container iframe { width: 320%; height: 100%; left: -110%; transform: none; }
     }
 
-    /* [MODE: FIT] 레이아웃 및 텍스트 자동 조절 */
+    /* [MODE: FIT] 레이아웃 */
     .slide-fit {
       display: flex; flex-direction: column; justify-content: space-between; background: #000;
     }
     
     .slide-fit .top-msg, .slide-fit .bottom-msg {
       width: 100%; 
-      padding: 15px 20px; 
+      padding: 10px 15px; 
       box-sizing: border-box;
       color: #fff; text-align: center; z-index: 10;
       font-weight: bold; 
-      flex-shrink: 0; /* 절대 줄어들지 않음 */
+      flex-shrink: 0; 
       background: #000;
-      min-height: 80px; /* 텍스트 공간 최소 확보 */
       
-      /* 텍스트 자동 정렬 및 줄바꿈 처리 */
       display: flex; align-items: center; justify-content: center;
-      white-space: pre-wrap; /* 줄바꿈 허용 */
-      word-break: keep-all;  /* 단어 단위 끊기 */
-      line-height: 1.4;
+      white-space: pre-wrap;
+      word-break: keep-all; 
+      line-height: 1.3;
     }
 
-    /* 상단 텍스트 스타일 */
-    .slide-fit .top-msg { font-size: 18px; }
+    .slide-fit .top-msg { 
+      min-height: 60px;
+      font-size: 18px; 
+    }
     
-    /* 하단 텍스트 (자막 느낌) 스타일 */
+    /* [자막 스타일] 폰트 크기는 JS가 자동으로 결정하지만 기본값 설정 */
     .slide-fit .bottom-msg { 
-      font-size: 20px; 
-      color: #FFEB3B; /* 자막처럼 노란색 계열 포인트 (원하면 #fff로 변경) */
-      padding-bottom: 25px; /* 하단 여백 추가 (아이폰 홈바 대응) */
+      min-height: 80px;
+      /* 너무 길어지면 영상 침범 방지 (최대 30% 높이까지만) */
+      max-height: 30vh; 
+      overflow-y: auto;
+      color: #FFEB3B; /* 노란색 강조 */
+      padding-bottom: 25px; 
+      /* 부드러운 크기 전환 */
+      transition: font-size 0.2s ease;
     }
 
     .slide-fit .video-wrapper {
@@ -102,7 +107,6 @@
   let swiper;
   let players = {};
   
-  // 소리 설정 저장 (localStorage)
   let savedSoundState = localStorage.getItem('isSoundOn');
   let isGlobalSoundOn = (savedSoundState === 'true');
 
@@ -117,13 +121,16 @@
       let html = '';
       if (v.viewMode === 'fit') {
         slide.classList.add('slide-fit');
+        // 텍스트 길이에 따라 데이터 속성 부여 (CSS/JS 제어용)
+        const textLen = v.bottomText ? v.bottomText.length : 0;
+        
         html = `
           <div class="top-msg">${v.topText}</div>
           <div class="video-wrapper">
             <div id="player-${idx}"></div>
             ${interactionLayer}
           </div>
-          <div class="bottom-msg">${v.bottomText}</div>`;
+          <div class="bottom-msg" id="bottom-msg-${idx}" data-len="${textLen}">${v.bottomText}</div>`;
       } else {
         slide.classList.add('slide-full');
         html = `
@@ -151,8 +158,33 @@
       }
     });
 
-    // 유튜브 API 강제 로딩
+    // 자막 크기 자동 최적화 실행
+    adjustSubtitleSizes();
+    // 화면 크기 바뀔 때도 재계산
+    window.addEventListener('resize', adjustSubtitleSizes);
+
     loadYoutubeApi();
+  }
+
+  // [기능 추가] 자막 길이에 따라 폰트 크기 최적화 (가로폭 맞춤)
+  function adjustSubtitleSizes() {
+    document.querySelectorAll('.bottom-msg').forEach(el => {
+      const len = parseInt(el.getAttribute('data-len') || 0);
+      if (len === 0) return;
+
+      // vw 단위 사용: 화면 너비의 %로 설정
+      let sizeVw = 5.5; // 기본값 (중간 길이)
+
+      if (len <= 10) {
+        sizeVw = 9.0; // 매우 짧음 -> 아주 크게
+      } else if (len <= 25) {
+        sizeVw = 6.5; // 적당함 -> 크게
+      } else if (len > 50) {
+        sizeVw = 4.5; // 김 -> 작게
+      }
+
+      el.style.fontSize = sizeVw + 'vw';
+    });
   }
 
   function loadYoutubeApi() {
@@ -171,7 +203,7 @@
           'autoplay': 1, 'mute': 1, 'controls': 0, 'rel': 0, 
           'showinfo': 0, 'modestbranding': 1, 'playsinline': 1, 
           'fs': 0, 'disablekb': 1, 'iv_load_policy': 3,
-          'cc_load_policy': 1, // [추가] 유튜브 자체 자막 강제 켜기 (있을 경우)
+          'cc_load_policy': 1, // 유튜브 자체 자막 켜기
           'start': v.start, 'end': v.end > 0 ? v.end : undefined,
           'origin': window.location.origin
         },
@@ -184,7 +216,6 @@
                  event.target.mute(); 
               }
               event.target.playVideo();
-              
               setTimeout(() => {
                 const state = event.target.getPlayerState();
                 if (state !== YT.PlayerState.PLAYING && state !== YT.PlayerState.BUFFERING) {

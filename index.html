@@ -28,7 +28,7 @@
       background: rgba(0,0,0,0);
     }
 
-    /* [MODE: FULL] 쇼츠 스타일 (화면 꽉 채움) */
+    /* [MODE: FULL] 쇼츠 스타일 */
     .slide-full .video-container iframe {
       position: absolute;
       top: 0; left: 50%;
@@ -43,34 +43,35 @@
       }
     }
 
-    /* [MODE: FIT] 레이아웃 수정 (Flex 높이 문제 해결) */
+    /* [MODE: FIT] 레이아웃 강화 */
     .slide-fit {
       display: flex; flex-direction: column; justify-content: space-between; background: #000;
+      height: 100vh; /* 높이 강제 지정 */
     }
     .slide-fit .top-msg, .slide-fit .bottom-msg {
       width: 100%; padding: 20px; box-sizing: border-box;
       color: #fff; text-align: center; z-index: 10;
       font-size: 18px; font-weight: bold; line-height: 1.5;
-      flex-shrink: 0; /* 텍스트 영역 줄어들지 않게 고정 */
+      flex-shrink: 0; 
       background: #000;
-      min-height: 60px; /* 최소 높이 확보 */
+      min-height: 60px;
     }
     
     .slide-fit .video-wrapper {
       position: relative; 
       width: 100%; 
-      flex-grow: 1; /* 남은 공간 모두 차지 */
-      height: 100%; /* 중요: 높이 100% 강제 */
+      flex: 1; /* flex-grow 대신 flex: 1 사용으로 호환성 확보 */
       display: flex; 
       align-items: center; justify-content: center;
       overflow: hidden; 
+      background: #000;
     }
     .slide-fit .video-wrapper iframe {
-      position: absolute; /* absolute로 변경하여 부모 크기에 맞춤 */
+      position: absolute; 
       top: 0; left: 0;
       width: 100%; 
       height: 100%;
-      object-fit: contain; /* 비율 유지하며 꽉 채우기 */
+      object-fit: contain; 
     }
 
     /* 타이틀 배지 */
@@ -146,8 +147,10 @@
 
   function onYouTubeIframeAPIReady() {
     videoList.forEach((v, idx) => {
+      // 캐시 문제 방지를 위해 origin 추가
       players[idx] = new YT.Player('player-' + idx, {
         videoId: v.videoId,
+        host: 'https://www.youtube.com',
         playerVars: {
           'autoplay': 1,
           'mute': 1,
@@ -160,16 +163,23 @@
           'disablekb': 1, 
           'iv_load_policy': 3,
           'start': v.start, 
-          'end': v.end > 0 ? v.end : undefined
+          'end': v.end > 0 ? v.end : undefined,
+          'origin': window.location.origin // 보안 정책 준수
         },
         events: {
           'onReady': (event) => {
-            // [중요] 새로고침 시 즉시 재생 보장
-            // 현재 활성화된 슬라이드가 이 플레이어라면 즉시 재생
-            if (swiper && swiper.activeIndex === idx) {
-               event.target.mute();
-               event.target.seekTo(v.start || 0);
-               event.target.playVideo();
+            // [중요 수정] 바로 재생하지 않고 약간의 지연을 둠 (새로고침 시 DOM 로딩 대기)
+            if (idx === 0) {
+              event.target.mute(); 
+              setTimeout(() => {
+                event.target.playVideo();
+                // 1초 뒤에 한번 더 확인 (재생 실패 대비)
+                setTimeout(() => {
+                    if (event.target.getPlayerState() !== YT.PlayerState.PLAYING) {
+                        event.target.playVideo();
+                    }
+                }, 1000);
+              }, 500); 
             }
           },
           'onStateChange': (event) => onPlayerStateChange(event, idx)
@@ -179,20 +189,13 @@
   }
 
   function onPlayerStateChange(event, idx) {
-    // 영상 종료(ENDED) 시 처리
     if (event.data === YT.PlayerState.ENDED) {
       if(idx < videoList.length - 1) {
-        // 다음 영상이 있으면 이동
         swiper.slideNext();
       } else {
-        // [중요] 마지막 영상이면 처음으로 루프
         swiper.slideTo(0);
-        
-        // 영상이 1개뿐이거나 이미 0번일 경우, slideTo가 이벤트를 발생시키지 않을 수 있음
-        // 따라서 강제로 0번을 다시 재생시킴
-        if (swiper.activeIndex === 0) {
-           playVideo(0);
-        }
+        // 마지막->처음 루프 시 재생이 씹히는 경우 방지
+        setTimeout(() => playVideo(0), 300);
       }
     }
   }
@@ -209,6 +212,7 @@
   function playVideo(idx) {
     if (players[idx] && typeof players[idx].playVideo === 'function') {
       const v = videoList[idx];
+      players[idx].mute(); // 자동재생 성공률을 높이기 위해 일단 뮤트
       players[idx].seekTo(v.start || 0);
       players[idx].playVideo();
     }
@@ -220,7 +224,12 @@
     }
   }
 
-  initApp();
+  // DOM 로드 완료 후 앱 시작 (안전장치)
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initApp);
+  } else {
+    initApp();
+  }
 </script>
 </body>
 </html>

@@ -11,9 +11,9 @@
   iframe{width:100%;height:100%;border:0;pointer-events:auto;}
   .smart-layer{position:absolute;top:0;left:0;width:100%;height:100%;z-index:50;background:transparent;cursor:pointer;
     clip-path: polygon(0% 0%, 100% 0%, 100% 80%, 65% 80%, 65% 100%, 0% 100%);}
-  .play-btn{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:70px;height:70px;z-index:55;background:rgba(0,0,0,0.6);border-radius:50%;display:flex;justify-content:center;align-items:center;pointer-events:none;transition:opacity 0.2s;}
+  .play-btn{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:70px;height:70px;z-index:55;background:rgba(0,0,0,0.6);border-radius:50%;display:flex;justify-content:center;align-items:center;cursor:pointer;transition:opacity 0.2s;}
   .play-btn::after{content:'';width:0;height:0;border-left:25px solid #fff;border-top:15px solid transparent;border-bottom:15px solid transparent;margin-left:5px;}
-  .play-btn.hide{opacity:0;}
+  .play-btn.hide{opacity:0;pointer-events:none;}
   .sub-box{position:absolute;left:50%;transform:translateX(-50%);bottom:10%;width:auto;max-width:90%;text-align:center;color:#fff;z-index:60;pointer-events:none;text-shadow:1px 1px 2px rgba(0,0,0,0.8);background:rgba(0,0,0,0.5);padding:8px 16px;border-radius:8px;font-weight:600;line-height:1.4;opacity:0;transition:all 0.1s;}
   .sub-box.show{opacity:1;}
   .full iframe{position:absolute;top:0;left:50%;width:177.78vh;height:100%;transform:translateX(-50%);object-fit:cover;}
@@ -32,6 +32,8 @@
 <script>
 const list=[{"id":"BTn8QLqevj0","title":"","mode":"full","start":200,"end":210,"top":"","sub":""}];
 let swiper, players={}, subs={}, timer=null, playersReady=0;
+let userInteracted = false; // 사용자가 재생 버튼을 눌렀는지 여부
+let isTransitioning = false;
 
 function init(){
   const w=document.getElementById('wrap');
@@ -39,8 +41,8 @@ function init(){
     const d=document.createElement('div'); 
     d.className='swiper-slide '+(v.mode==='fit'?'fit':'full');
     subs[i]=parseSrt(v.sub);
-    const L=`<div class="smart-layer" onclick="toggle(${i})"></div>`;
-    const B=`<div class="play-btn" id="btn-${i}"></div>`;
+    const L=`<div class="smart-layer" onclick="handleLayerClick(${i})"></div>`;
+    const B=`<div class="play-btn" id="btn-${i}" onclick="handlePlayClick(${i})"></div>`;
     const S=`<div class="sub-box" id="sub-${i}"></div>`;
     const core = `<div id="p-${i}"></div>${L}${B}${S}`;
     
@@ -59,8 +61,9 @@ function init(){
     loop: false,
     on:{ 
       slideChange:()=>{ 
-        stopAll(); 
-        setTimeout(()=>play(swiper.activeIndex), 200);
+        if(!isTransitioning) {
+          handleSlideChange();
+        }
       } 
     }
   });
@@ -68,6 +71,32 @@ function init(){
   window.addEventListener('resize',()=>{
     document.querySelectorAll('.sub-box.show').forEach(el=>font(el,el.innerText.length));
   });
+}
+
+function handleSlideChange(){
+  stopAll();
+  const idx = swiper.activeIndex;
+  // 사용자가 이미 재생 버튼을 눌렀으면 자동 재생
+  if(userInteracted){
+    setTimeout(()=>play(idx), 300);
+  }
+}
+
+// 재생 버튼 클릭 핸들러
+function handlePlayClick(i){
+  userInteracted = true; // 사용자 상호작용 기록
+  play(i);
+}
+
+// 레이어 클릭 핸들러 (재생/일시정지 토글)
+function handleLayerClick(i){
+  if(!userInteracted){
+    // 첫 상호작용
+    userInteracted = true;
+    play(i);
+    return;
+  }
+  toggle(i);
 }
 
 function onYouTubeIframeAPIReady(){
@@ -90,7 +119,8 @@ function onYouTubeIframeAPIReady(){
       },
       events:{
         'onReady':(e)=>onPlayerReady(e,i),
-        'onStateChange':(e)=>state(e,i)
+        'onStateChange':(e)=>state(e,i),
+        'onError':(e)=>onPlayerError(e,i)
       }
     });
   });
@@ -98,22 +128,38 @@ function onYouTubeIframeAPIReady(){
 
 function onPlayerReady(e,i){
   playersReady++;
-  // 모든 플레이어 준비 완료 시 첫 영상 자동 재생
+  // 모든 플레이어 준비되면 첫 번째 재생 버튼 표시 유지
   if(playersReady === list.length){
-    setTimeout(()=>play(0), 800);
+    console.log('All players ready');
+  }
+}
+
+function onPlayerError(e, i) {
+  console.error('Player ' + i + ' error:', e.data);
+  // 에러 발생 시 다음 영상으로 (사용자가 이미 상호작용 했으면)
+  if(userInteracted){
+    setTimeout(()=>next(), 1000);
   }
 }
 
 function state(e,i){
   const btn=document.getElementById('btn-'+i);
+  const currentIdx = swiper ? swiper.activeIndex : 0;
+  
+  // 현재 슬라이드가 아니면 무시
+  if(i !== currentIdx) return;
+  
   if(e.data===YT.PlayerState.PLAYING){
     if(btn) btn.classList.add('hide');
     startMon(i); 
-  } else {
+  } else if(e.data===YT.PlayerState.PAUSED){
     if(btn) btn.classList.remove('hide');
-    if(e.data===YT.PlayerState.ENDED){
-      // 영상 종료 시 다음 영상으로
-      clearInterval(timer);
+  } else if(e.data===YT.PlayerState.ENDED){
+    if(btn) btn.classList.remove('hide');
+    // 영상 종료 시 다음 영상으로
+    clearInterval(timer);
+    timer = null;
+    if(userInteracted){
       setTimeout(()=>next(), 300);
     }
   }
@@ -122,7 +168,8 @@ function state(e,i){
 function toggle(i){
   const p=players[i];
   if(p && p.getPlayerState){ 
-    if(p.getPlayerState()===YT.PlayerState.PLAYING){
+    const state = p.getPlayerState();
+    if(state===YT.PlayerState.PLAYING){
       p.pauseVideo();
     } else {
       p.playVideo();
@@ -132,14 +179,26 @@ function toggle(i){
 
 function play(i){
   const p=players[i];
-  if(p && p.playVideo){ 
-    const startTime = list[i].start || 0;
-    try {
-      p.seekTo(startTime, true);
-      setTimeout(()=>p.playVideo(), 100);
-    } catch(e) {
-      console.log('Play error:', e);
-    }
+  if(!p) return;
+  
+  if(!p.playVideo || !p.seekTo) {
+    // 플레이어가 아직 준비되지 않았으면 재시도
+    setTimeout(()=>play(i), 300);
+    return;
+  }
+  
+  const startTime = list[i].start || 0;
+  try {
+    p.seekTo(startTime, true);
+    setTimeout(()=>{
+      try {
+        p.playVideo();
+      } catch(e) {
+        console.log('playVideo error:', e);
+      }
+    }, 150);
+  } catch(e) {
+    console.log('Play error:', e);
   }
 }
 
@@ -148,6 +207,12 @@ function stopAll(){
     clearInterval(timer);
     timer = null;
   }
+  // 자막 숨기기
+  document.querySelectorAll('.sub-box').forEach(el=>{
+    el.classList.remove('show');
+    el.innerHTML='';
+  });
+  
   Object.values(players).forEach(p=>{ 
     if(p && p.pauseVideo) {
       try {
@@ -158,12 +223,24 @@ function stopAll(){
 }
 
 function next(){
+  if(isTransitioning) return;
+  isTransitioning = true;
+  
   const idx=swiper.activeIndex;
+  
   if(idx < list.length - 1){
     swiper.slideNext();
+    setTimeout(()=>{ isTransitioning = false; }, 500);
   } else {
-    // 마지막 영상 후 처음으로
-    swiper.slideTo(0);
+    // 마지막 영상 후 처음으로 루프
+    stopAll();
+    swiper.slideTo(0, 400);
+    setTimeout(()=>{
+      isTransitioning = false;
+      if(userInteracted){
+        play(0);
+      }
+    }, 500);
   }
 }
 
@@ -172,18 +249,27 @@ function startMon(i){
   
   const p=players[i];
   const end=list[i].end;
+  const start=list[i].start || 0;
   const el=document.getElementById('sub-'+i);
   const sDat=subs[i];
   
   timer=setInterval(()=>{
     if(!p || !p.getCurrentTime) return;
     
-    const t=p.getCurrentTime();
+    let t;
+    try {
+      t = p.getCurrentTime();
+    } catch(e) {
+      return;
+    }
     
-    // 종료 시간 체크 (end가 0이면 무시)
-    if(end > 0 && t >= (end - 0.2)){
+    // 종료 시간 체크 (end가 start보다 크면 유효)
+    if(end > start && t >= (end - 0.3)){
       clearInterval(timer);
-      p.pauseVideo();
+      timer = null;
+      try {
+        p.pauseVideo();
+      } catch(e) {}
       setTimeout(()=>next(), 200);
       return;
     }

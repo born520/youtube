@@ -151,17 +151,16 @@ function handleSlideChange(){
   if(userInteracted) setTimeout(function(){ play(idx); }, 300);
 }
 
-/* [핵심 수정 부분] 버튼 클릭 시 상태 확인 후 이어보기 or 처음부터 시작 */
 function handlePlayClick(i){
   if(!apiReady) return;
   userInteracted = true;
   
   var p = players[i];
-  // 이미 재생 중이었다가 멈춘 상태라면(PAUSED), 그냥 playVideo()로 이어보기
+  // 멈춤 상태(PAUSED)라면 이어보기
   if(p && typeof p.getPlayerState === 'function' && p.getPlayerState() === YT.PlayerState.PAUSED){
     p.playVideo();
   } else {
-    // 그 외(처음 시작, 끝남 등)에는 play() 함수로 리셋하여 시작
+    // 그 외(처음 시작, 종료 후 등)는 처음부터(또는 지정시간부터) 시작
     play(i);
   }
 }

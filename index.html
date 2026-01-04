@@ -2,124 +2,140 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Tube Player</title>
+<title>Player</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
 <style>
-  body,html{margin:0;padding:0;width:100%;background:#000;overflow:hidden;font-family:-apple-system,sans-serif;}
-  .swiper,body,html{height:100vh;height:100dvh;}
-  .swiper{width:100%;max-width:480px;margin:0 auto;background:#000;position:relative;}
-  .swiper-slide{background:#000;display:flex;flex-direction:column;justify-content:center;align-items:center;overflow:hidden;position:relative;}
+  body,html{margin:0;padding:0;width:100%;height:100%;background:#000;overflow:hidden;font-family:sans-serif;}
+  .swiper{width:100%;height:100%;max-width:480px;margin:0 auto;background:#000;position:relative;}
+  .swiper-slide{display:flex;flex-direction:column;justify-content:center;align-items:center;overflow:hidden;position:relative;}
   iframe{width:100%;height:100%;border:0;pointer-events:auto;}
-  /* 스마트 레이어: 우측하단(광고스킵) 구멍 뚫기 */
+  /* 스마트 레이어 */
   .smart-layer{position:absolute;top:0;left:0;width:100%;height:100%;z-index:50;background:transparent;cursor:pointer;
     clip-path: polygon(0% 0%, 100% 0%, 100% 80%, 65% 80%, 65% 100%, 0% 100%);}
   .play-btn{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:70px;height:70px;z-index:55;background:rgba(0,0,0,0.6);border-radius:50%;display:flex;justify-content:center;align-items:center;pointer-events:none;transition:opacity 0.2s;}
-  .play-btn::after{content:'';display:block;width:0;height:0;border-left:25px solid #fff;border-top:15px solid transparent;border-bottom:15px solid transparent;margin-left:5px;}
-  .play-btn.playing{opacity:0;}
-  .sub-overlay{position:absolute;left:50%;transform:translateX(-50%);bottom:8%;width:auto;max-width:90%;text-align:center;color:#fff;z-index:60;pointer-events:none;text-shadow:1px 1px 2px rgba(0,0,0,0.8);background:rgba(0,0,0,0.5);padding:8px 16px;border-radius:8px;font-weight:600;line-height:1.4;opacity:0;transition:all 0.1s;}
-  .sub-overlay.active{opacity:1;}
-  .slide-full iframe{position:absolute;top:0;left:50%;width:177.78vh;height:100dvh;transform:translateX(-50%);object-fit:cover;}
-  @media(max-aspect-ratio:9/16){.slide-full iframe{width:320%;height:100%;left:-110%;transform:none;}}
-  .slide-fit{display:flex;flex-direction:column;}
-  .slide-fit .top-msg{width:100%;padding:15px;color:#fff;text-align:center;z-index:10;font-weight:bold;font-size:18px;min-height:50px;flex-shrink:0;}
-  .slide-fit .video-wrapper{position:relative;width:100%;flex:1;display:flex;align-items:center;justify-content:center;overflow:hidden;}
-  .slide-fit iframe{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:contain;}
-  .slide-fit .sub-overlay{bottom:5%;}
-  .title-badge{position:absolute;top:20px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.6);color:#fff;padding:5px 15px;border-radius:15px;font-size:14px;z-index:20;pointer-events:none;}
+  .play-btn::after{content:'';width:0;height:0;border-left:25px solid #fff;border-top:15px solid transparent;border-bottom:15px solid transparent;margin-left:5px;}
+  .play-btn.hide{opacity:0;}
+  .sub-box{position:absolute;left:50%;transform:translateX(-50%);bottom:10%;width:auto;max-width:90%;text-align:center;color:#fff;z-index:60;pointer-events:none;text-shadow:1px 1px 2px rgba(0,0,0,0.8);background:rgba(0,0,0,0.5);padding:8px 16px;border-radius:8px;font-weight:600;line-height:1.4;opacity:0;transition:all 0.1s;}
+  .sub-box.show{opacity:1;}
+  .full iframe{position:absolute;top:0;left:50%;width:177.78vh;height:100%;transform:translateX(-50%);object-fit:cover;}
+  @media(max-aspect-ratio:9/16){.full iframe{width:320%;height:100%;left:-110%;transform:none;}}
+  .fit{display:flex;flex-direction:column;}
+  .fit .top{width:100%;padding:15px;color:#fff;text-align:center;z-index:10;font-weight:bold;min-height:50px;}
+  .fit .vid-wrap{position:relative;width:100%;flex:1;display:flex;align-items:center;justify-content:center;}
+  .fit iframe{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:contain;}
+  .badge{position:absolute;top:20px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.6);color:#fff;padding:5px 15px;border-radius:15px;font-size:14px;z-index:20;pointer-events:none;}
 </style>
 </head>
 <body>
-<div class="swiper"><div class="swiper-wrapper" id="sw-wrap"></div></div>
+<div class="swiper"><div class="swiper-wrapper" id="wrap"></div></div>
 <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
 <script src="https://www.youtube.com/iframe_api"></script>
 <script>
-const vList=[{"videoId":"BTn8QLqevj0","title":"","viewMode":"full","start":200,"end":210,"topText":"","subtitleData":""}];
-let swiper, players={}, subData={}, monitorTimer=null;
+const list=[{"id":"BTn8QLqevj0","title":"","mode":"full","start":200,"end":210,"top":"","sub":""}];
+let swiper, players={}, subs={}, timer=null;
 
 function init(){
-  const wrap=document.getElementById('sw-wrap');
-  vList.forEach((v,i)=>{
-    const slide=document.createElement('div'); slide.className='swiper-slide';
-    subData[i]=parseSRT(v.subtitleData);
-    const layer=`<div class="smart-layer" onclick="togglePlay(${i})"></div>`;
-    const btn=`<div class="play-btn" id="btn-${i}"></div>`;
-    const sub=`<div class="sub-overlay" id="sub-${i}"></div>`;
-    let h='';
-    if(v.viewMode==='fit'){
-      slide.classList.add('slide-fit');
-      h=`${v.topText?`<div class="top-msg">${v.topText}</div>`:''}<div class="video-wrapper"><div id="p-${i}"></div>${layer}${btn}${sub}</div>`;
-    }else{
-      slide.classList.add('slide-full');
-      h=`<div class="video-container"><div id="p-${i}"></div>${layer}${btn}${sub}</div><div class="title-badge">${v.title}</div>`;
-    }
-    slide.innerHTML=h; wrap.appendChild(slide);
+  const w=document.getElementById('wrap');
+  list.forEach((v,i)=>{
+    const d=document.createElement('div'); d.className='swiper-slide '+(v.mode==='fit'?'fit':'full');
+    subs[i]=parseSrt(v.sub);
+    const L=`<div class="smart-layer" onclick="toggle(${i})"></div>`;
+    const B=`<div class="play-btn" id="btn-${i}"></div>`;
+    const S=`<div class="sub-box" id="sub-${i}"></div>`;
+    const core = `<div id="p-${i}"></div>${L}${B}${S}`;
+    
+    if(v.mode==='fit') d.innerHTML=`${v.top?`<div class="top">${v.top}</div>`:''}<div class="vid-wrap">${core}</div>`;
+    else d.innerHTML=`<div class="video-container">${core}</div><div class="badge">${v.title}</div>`;
+    w.appendChild(d);
   });
-  swiper=new Swiper('.swiper',{direction:'vertical',effect:'slide',speed:400,on:{slideChange:()=>{pauseV(swiper.previousIndex); playV(swiper.activeIndex);}}});
-  window.addEventListener('resize',()=>{document.querySelectorAll('.sub-overlay.active').forEach(el=>adjFont(el,el.innerText.length));});
+  
+  swiper=new Swiper('.swiper',{
+    direction:'vertical',effect:'slide',speed:400,
+    on:{ slideChange:()=>{ stopAll(); play(swiper.activeIndex); } }
+  });
+  
+  window.addEventListener('resize',()=>{document.querySelectorAll('.sub-box.show').forEach(el=>font(el,el.innerText.length));});
 }
 
 function onYouTubeIframeAPIReady(){
-  vList.forEach((v,i)=>{
+  list.forEach((v,i)=>{
     players[i]=new YT.Player('p-'+i,{
-      videoId:v.videoId, host:'https://www.youtube.com',
+      videoId:v.id, host:'https://www.youtube.com',
       playerVars:{'autoplay':0,'controls':0,'rel':0,'showinfo':0,'modestbranding':1,'playsinline':1,'fs':0,'iv_load_policy':3,'start':v.start,'origin':window.location.origin},
-      events:{'onStateChange':(e)=>onState(e,i)}
+      events:{'onStateChange':(e)=>state(e,i)}
     });
   });
 }
 
-function onState(e,i){
+function state(e,i){
   const btn=document.getElementById('btn-'+i);
-  if(e.data===YT.PlayerState.PLAYING){ startMon(i); if(btn)btn.classList.add('playing'); }
-  else if(e.data===YT.PlayerState.PAUSED||e.data===YT.PlayerState.ENDED){ 
-    if(monitorTimer) clearInterval(monitorTimer); if(btn)btn.classList.remove('playing'); 
-    if(e.data===YT.PlayerState.ENDED){ (i<vList.length-1)?swiper.slideNext():swiper.slideTo(0); }
+  if(e.data===YT.PlayerState.PLAYING){
+    if(btn) btn.classList.add('hide');
+    startMon(i); 
+  } else {
+    if(btn) btn.classList.remove('hide');
+    if(e.data===YT.PlayerState.ENDED) next();
   }
 }
 
-function togglePlay(i){
-  const p=players[i]; 
+function toggle(i){
+  const p=players[i];
   if(p&&p.getPlayerState){ (p.getPlayerState()===YT.PlayerState.PLAYING)?p.pauseVideo():p.playVideo(); }
 }
 
-function playV(i){ 
-  if(players[i]){ players[i].seekTo(vList[i].start||0); players[i].playVideo(); } 
+function play(i){
+  const p=players[i];
+  if(p&&p.playVideo){ p.seekTo(list[i].start||0); p.playVideo(); }
 }
-function pauseV(i){ 
-  if(players[i]) players[i].pauseVideo(); 
-  if(monitorTimer) clearInterval(monitorTimer); 
+
+function stopAll(){
+  if(timer) clearInterval(timer); 
+  Object.values(players).forEach(p=>{ if(p&&p.pauseVideo) p.pauseVideo(); });
+}
+
+function next(){
+  const idx=swiper.activeIndex;
+  (idx<list.length-1) ? swiper.slideNext() : swiper.slideTo(0);
 }
 
 function startMon(i){
-  if(monitorTimer) clearInterval(monitorTimer);
-  const p=players[i], end=(vList[i].end>0)?vList[i].end:p.getDuration(), el=document.getElementById('sub-'+i), subs=subData[i];
-  monitorTimer=setInterval(()=>{
-    if(!p.getCurrentTime) return;
-    const cur=p.getCurrentTime();
-    if(end>0 && cur>=end-0.5){ clearInterval(monitorTimer); (i<vList.length-1)?swiper.slideNext():swiper.slideTo(0); return; }
-    if(subs&&subs.length>0&&el){
-      const s=subs.find(x=>cur>=x.start&&cur<=x.end);
-      if(s){ 
-        const txt=s.text.replace(/\n/g,'<br>'); 
-        if(el.innerHTML!==txt){el.innerHTML=txt; el.classList.add('active'); adjFont(el,s.text.length);} 
-      } else { el.classList.remove('active'); el.innerHTML=''; }
+  if(timer) clearInterval(timer);
+  const p=players[i], end=list[i].end, el=document.getElementById('sub-'+i), sDat=subs[i];
+  
+  timer=setInterval(()=>{
+    if(!p||!p.getCurrentTime) return;
+    const t=p.getCurrentTime();
+    
+    // 종료 시간 체크 (0.5초 미리 감지)
+    if(end>0 && t >= end-0.5){
+      clearInterval(timer);
+      next();
+      return;
+    }
+    
+    if(sDat&&sDat.length&&el){
+      const row=sDat.find(x=>t>=x.s && t<=x.e);
+      if(row){
+        const txt=row.t.replace(/\n/g,'<br>');
+        if(el.innerHTML!==txt){ el.innerHTML=txt; el.classList.add('show'); font(el,row.t.length); }
+      } else { el.classList.remove('show'); el.innerHTML=''; }
     }
   },100);
 }
 
-function adjFont(el,len){
+function font(el,len){
   const w=document.querySelector('.swiper')?.clientWidth||window.innerWidth;
   let r=0.045; if(len<=5)r=0.08; else if(len<=15)r=0.06; else if(len<=30)r=0.05; else r=0.04;
   el.style.fontSize=(w*r)+'px';
 }
 
-function parseSRT(t){
-  if(!t||!t.includes('-->')) return t?[{start:0,end:99999,text:t}]:[];
-  const res=[]; let m; const p=/(\d+)\n(\d{2}:\d{2}:\d{2},\d{3}) --> (\d{2}:\d{2}:\d{2},\d{3})\n([\s\S]*?)(?=\n\n|\n$|$)/g;
-  while((m=p.exec(t+'\n\n'))!==null) res.push({start:hmsToSec(m[2]),end:hmsToSec(m[3]),text:m[4].trim()});
-  return res;
+function parseSrt(t){
+  if(!t||!t.includes('-->')) return t?[{s:0,e:9999,t:t}]:[];
+  const r=[]; let m; const p=/(\d+)\n(\d{2}:\d{2}:\d{2},\d{3}) --> (\d{2}:\d{2}:\d{2},\d{3})\n([\s\S]*?)(?=\n\n|\n$|$)/g;
+  while((m=p.exec(t+'\n\n'))!==null) r.push({s:h2s(m[2]),e:h2s(m[3]),t:m[4].trim()});
+  return r;
 }
-function hmsToSec(s){ const p=s.split(':'), sc=p[2].split(','); return parseInt(p[0])*3600+parseInt(p[1])*60+parseInt(sc[0])+parseInt(sc[1])/1000; }
+function h2s(s){ const p=s.split(':'), c=p[2].split(','); return parseInt(p[0])*3600+parseInt(p[1])*60+parseInt(c[0])+parseInt(c[1])/1000; }
 
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init); else init();
 </script></body></html>

@@ -16,7 +16,6 @@
   .play-btn.hide{opacity:0;pointer-events:none;}
   .sub-box{position:absolute;left:50%;transform:translateX(-50%);bottom:10%;width:auto;max-width:90%;text-align:center;color:#fff;z-index:60;pointer-events:none;text-shadow:1px 1px 2px rgba(0,0,0,0.8);background:rgba(0,0,0,0.5);padding:8px 16px;border-radius:8px;font-weight:600;line-height:1.4;opacity:0;transition:all 0.1s;}
   .sub-box.show{opacity:1;}
-  /* 썸네일 스타일 */
   .thumb{position:absolute;top:0;left:0;width:100%;height:100%;background-size:cover;background-position:center;background-repeat:no-repeat;z-index:1;transition:opacity 0.3s;}
   .thumb.hide{opacity:0;pointer-events:none;}
   .player-wrap{position:absolute;top:0;left:0;width:100%;height:100%;z-index:2;}
@@ -28,42 +27,84 @@
   .fit .thumb{position:absolute;top:0;left:0;width:100%;height:100%;}
   .fit .player-wrap{position:absolute;top:0;left:0;width:100%;height:100%;}
   .badge{position:absolute;top:20px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.6);color:#fff;padding:5px 15px;border-radius:15px;font-size:14px;z-index:20;pointer-events:none;}
+  .loading{position:fixed;top:10px;left:50%;transform:translateX(-50%);background:rgba(255,255,255,0.9);color:#333;padding:8px 16px;border-radius:20px;font-size:12px;z-index:999;display:none;}
+  .loading.show{display:block;}
 </style>
 </head>
 <body>
+<div class="loading" id="loading">로딩 중...</div>
 <div class="swiper"><div class="swiper-wrapper" id="wrap"></div></div>
 <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
-<script src="https://www.youtube.com/iframe_api"></script>
 <script>
 const list=[{"id":"BTn8QLqevj0","title":"","mode":"full","start":200,"end":210,"top":"","sub":""}];
 let swiper, players={}, subs={}, timer=null, playersReady=0;
 let userInteracted = false;
 let isTransitioning = false;
+let apiReady = false;
+let initAttempts = 0;
+
+function log(msg){
+  console.log('[Player] ' + msg);
+}
+
+function showLoading(msg){
+  const el = document.getElementById('loading');
+  if(el){
+    el.textContent = msg || '로딩 중...';
+    el.classList.add('show');
+  }
+}
+
+function hideLoading(){
+  const el = document.getElementById('loading');
+  if(el) el.classList.remove('show');
+}
 
 function getThumbUrl(videoId){
-  // 고화질 썸네일 (maxresdefault가 없으면 hqdefault 사용)
   return 'https://img.youtube.com/vi/'+videoId+'/hqdefault.jpg';
 }
 
 function init(){
+  log('init() called');
   const w=document.getElementById('wrap');
+  if(!w){
+    log('ERROR: wrap element not found');
+    return;
+  }
+  
   list.forEach((v,i)=>{
     const d=document.createElement('div'); 
     d.className='swiper-slide '+(v.mode==='fit'?'fit':'full');
     subs[i]=parseSrt(v.sub);
     
-    const thumb=`<div class="thumb" id="thumb-${i}" style="background-image:url('${getThumbUrl(v.id)}')"></div>`;
-    const L=`<div class="smart-layer" onclick="handleLayerClick(${i})"></div>`;
-    const B=`<div class="play-btn" id="btn-${i}" onclick="handlePlayClick(${i})"></div>`;
-    const S=`<div class="sub-box" id="sub-${i}"></div>`;
-    const player=`<div class="player-wrap"><div id="p-${i}"></div></div>`;
+    const thumb='<div class="thumb" id="thumb-'+i+'" style="background-image:url(\''+getThumbUrl(v.id)+'\')"></div>';
+    const L='<div class="smart-layer" data-idx="'+i+'"></div>';
+    const B='<div class="play-btn" id="btn-'+i+'" data-idx="'+i+'"></div>';
+    const S='<div class="sub-box" id="sub-'+i+'"></div>';
+    const player='<div class="player-wrap"><div id="p-'+i+'"></div></div>';
     
     if(v.mode==='fit') {
-      d.innerHTML=`${v.top?`<div class="top">${v.top}</div>`:''}<div class="vid-wrap">${thumb}${player}${L}${B}${S}</div>`;
+      d.innerHTML=(v.top?'<div class="top">'+v.top+'</div>':'')+'<div class="vid-wrap">'+thumb+player+L+B+S+'</div>';
     } else {
-      d.innerHTML=`${thumb}${player}${L}${B}${S}<div class="badge">${v.title}</div>`;
+      d.innerHTML=thumb+player+L+B+S+'<div class="badge">'+v.title+'</div>';
     }
     w.appendChild(d);
+  });
+  
+  // 이벤트 위임으로 클릭 처리
+  document.addEventListener('click', function(e){
+    const btn = e.target.closest('.play-btn');
+    const layer = e.target.closest('.smart-layer');
+    
+    if(btn){
+      const idx = parseInt(btn.getAttribute('data-idx'));
+      log('Play button clicked: ' + idx);
+      handlePlayClick(idx);
+    } else if(layer){
+      const idx = parseInt(layer.getAttribute('data-idx'));
+      log('Layer clicked: ' + idx);
+      handleLayerClick(idx);
+    }
   });
   
   swiper=new Swiper('.swiper',{
@@ -72,7 +113,8 @@ function init(){
     speed:400,
     loop: false,
     on:{ 
-      slideChange:()=>{ 
+      slideChange:function(){ 
+        log('Slide changed to: ' + swiper.activeIndex);
         if(!isTransitioning) {
           handleSlideChange();
         }
@@ -80,25 +122,178 @@ function init(){
     }
   });
   
-  window.addEventListener('resize',()=>{
-    document.querySelectorAll('.sub-box.show').forEach(el=>font(el,el.innerText.length));
+  window.addEventListener('resize',function(){
+    document.querySelectorAll('.sub-box.show').forEach(function(el){
+      font(el,el.innerText.length);
+    });
   });
+  
+  log('init() complete, loading YouTube API...');
+  loadYouTubeAPI();
+}
+
+function loadYouTubeAPI(){
+  showLoading('YouTube API 로딩 중...');
+  
+  // 이미 로드되어 있는지 확인
+  if(window.YT && window.YT.Player){
+    log('YouTube API already loaded');
+    apiReady = true;
+    hideLoading();
+    createPlayers();
+    return;
+  }
+  
+  // API 스크립트 로드
+  var tag = document.createElement('script');
+  tag.src = 'https://www.youtube.com/iframe_api';
+  tag.onerror = function(){
+    log('ERROR: Failed to load YouTube API');
+    showLoading('YouTube API 로드 실패. 새로고침 해주세요.');
+  };
+  var firstScriptTag = document.getElementsByTagName('script')[0];
+  firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+  
+  // 타임아웃 체크
+  setTimeout(function(){
+    if(!apiReady){
+      log('YouTube API load timeout, retrying...');
+      if(initAttempts < 3){
+        initAttempts++;
+        loadYouTubeAPI();
+      } else {
+        showLoading('YouTube API 로드 실패');
+      }
+    }
+  }, 10000);
+}
+
+// YouTube API 콜백 (전역)
+window.onYouTubeIframeAPIReady = function(){
+  log('onYouTubeIframeAPIReady called');
+  apiReady = true;
+  hideLoading();
+  createPlayers();
+};
+
+function createPlayers(){
+  log('createPlayers() called');
+  
+  if(!window.YT || !window.YT.Player){
+    log('ERROR: YT.Player not available');
+    return;
+  }
+  
+  list.forEach(function(v,i){
+    var container = document.getElementById('p-'+i);
+    if(!container){
+      log('ERROR: Container p-'+i+' not found');
+      return;
+    }
+    
+    log('Creating player ' + i + ' for video ' + v.id);
+    
+    try {
+      players[i] = new YT.Player('p-'+i, {
+        videoId: v.id,
+        host: 'https://www.youtube.com',
+        playerVars: {
+          'autoplay': 0,
+          'controls': 0,
+          'rel': 0,
+          'showinfo': 0,
+          'modestbranding': 1,
+          'playsinline': 1,
+          'fs': 0,
+          'iv_load_policy': 3,
+          'start': v.start || 0,
+          'enablejsapi': 1,
+          'origin': window.location.origin
+        },
+        events: {
+          'onReady': function(e){ onPlayerReady(e,i); },
+          'onStateChange': function(e){ onStateChange(e,i); },
+          'onError': function(e){ onPlayerError(e,i); }
+        }
+      });
+    } catch(err) {
+      log('ERROR creating player ' + i + ': ' + err.message);
+    }
+  });
+}
+
+function onPlayerReady(e,i){
+  playersReady++;
+  log('Player ' + i + ' ready (' + playersReady + '/' + list.length + ')');
+  
+  if(playersReady === list.length){
+    log('All players ready!');
+    hideLoading();
+  }
+}
+
+function onPlayerError(e, i) {
+  log('Player ' + i + ' error: ' + e.data);
+  if(userInteracted){
+    setTimeout(function(){ next(); }, 1000);
+  }
+}
+
+function onStateChange(e,i){
+  var currentIdx = swiper ? swiper.activeIndex : 0;
+  
+  if(i !== currentIdx) return;
+  
+  log('Player ' + i + ' state: ' + e.data);
+  
+  var btn = document.getElementById('btn-'+i);
+  
+  if(e.data === YT.PlayerState.PLAYING){
+    if(btn) btn.classList.add('hide');
+    hideThumb(i);
+    startMon(i); 
+  } else if(e.data === YT.PlayerState.PAUSED){
+    if(btn) btn.classList.remove('hide');
+  } else if(e.data === YT.PlayerState.ENDED){
+    if(btn) btn.classList.remove('hide');
+    if(timer){
+      clearInterval(timer);
+      timer = null;
+    }
+    if(userInteracted){
+      log('Video ended, going to next');
+      setTimeout(function(){ next(); }, 300);
+    }
+  } else if(e.data === YT.PlayerState.UNSTARTED){
+    log('Player ' + i + ' unstarted');
+  }
 }
 
 function handleSlideChange(){
   stopAll();
-  const idx = swiper.activeIndex;
+  var idx = swiper.activeIndex;
   if(userInteracted){
-    setTimeout(()=>play(idx), 300);
+    setTimeout(function(){ play(idx); }, 300);
   }
 }
 
 function handlePlayClick(i){
+  log('handlePlayClick: ' + i);
+  if(!apiReady){
+    log('API not ready yet');
+    showLoading('잠시 기다려주세요...');
+    return;
+  }
   userInteracted = true;
   play(i);
 }
 
 function handleLayerClick(i){
+  log('handleLayerClick: ' + i);
+  if(!apiReady){
+    log('API not ready yet');
+    return;
+  }
   if(!userInteracted){
     userInteracted = true;
     play(i);
@@ -107,84 +302,21 @@ function handleLayerClick(i){
   toggle(i);
 }
 
-function onYouTubeIframeAPIReady(){
-  list.forEach((v,i)=>{
-    players[i]=new YT.Player('p-'+i,{
-      videoId:v.id, 
-      host:'https://www.youtube.com',
-      playerVars:{
-        'autoplay':0,
-        'controls':0,
-        'rel':0,
-        'showinfo':0,
-        'modestbranding':1,
-        'playsinline':1,
-        'fs':0,
-        'iv_load_policy':3,
-        'start':v.start,
-        'enablejsapi':1,
-        'origin':window.location.origin
-      },
-      events:{
-        'onReady':(e)=>onPlayerReady(e,i),
-        'onStateChange':(e)=>state(e,i),
-        'onError':(e)=>onPlayerError(e,i)
-      }
-    });
-  });
-}
-
-function onPlayerReady(e,i){
-  playersReady++;
-  if(playersReady === list.length){
-    console.log('All players ready');
-  }
-}
-
-function onPlayerError(e, i) {
-  console.error('Player ' + i + ' error:', e.data);
-  if(userInteracted){
-    setTimeout(()=>next(), 1000);
-  }
-}
-
 function hideThumb(i){
-  const thumb = document.getElementById('thumb-'+i);
+  var thumb = document.getElementById('thumb-'+i);
   if(thumb) thumb.classList.add('hide');
 }
 
 function showThumb(i){
-  const thumb = document.getElementById('thumb-'+i);
+  var thumb = document.getElementById('thumb-'+i);
   if(thumb) thumb.classList.remove('hide');
 }
 
-function state(e,i){
-  const btn=document.getElementById('btn-'+i);
-  const currentIdx = swiper ? swiper.activeIndex : 0;
-  
-  if(i !== currentIdx) return;
-  
-  if(e.data===YT.PlayerState.PLAYING){
-    if(btn) btn.classList.add('hide');
-    hideThumb(i);
-    startMon(i); 
-  } else if(e.data===YT.PlayerState.PAUSED){
-    if(btn) btn.classList.remove('hide');
-  } else if(e.data===YT.PlayerState.ENDED){
-    if(btn) btn.classList.remove('hide');
-    clearInterval(timer);
-    timer = null;
-    if(userInteracted){
-      setTimeout(()=>next(), 300);
-    }
-  }
-}
-
 function toggle(i){
-  const p=players[i];
-  if(p && p.getPlayerState){ 
-    const state = p.getPlayerState();
-    if(state===YT.PlayerState.PLAYING){
+  var p = players[i];
+  if(p && typeof p.getPlayerState === 'function'){ 
+    var state = p.getPlayerState();
+    if(state === YT.PlayerState.PLAYING){
       p.pauseVideo();
     } else {
       p.playVideo();
@@ -193,42 +325,53 @@ function toggle(i){
 }
 
 function play(i){
-  const p=players[i];
-  if(!p) return;
+  log('play(' + i + ')');
+  var p = players[i];
   
-  if(!p.playVideo || !p.seekTo) {
-    setTimeout(()=>play(i), 300);
+  if(!p){
+    log('Player ' + i + ' not found');
     return;
   }
   
-  const startTime = list[i].start || 0;
+  if(typeof p.playVideo !== 'function' || typeof p.seekTo !== 'function'){
+    log('Player ' + i + ' not ready, retrying...');
+    setTimeout(function(){ play(i); }, 500);
+    return;
+  }
+  
+  var startTime = list[i].start || 0;
+  log('Seeking to ' + startTime + ' and playing');
+  
   try {
     p.seekTo(startTime, true);
-    setTimeout(()=>{
+    setTimeout(function(){
       try {
         p.playVideo();
+        log('playVideo() called for ' + i);
       } catch(e) {
-        console.log('playVideo error:', e);
+        log('playVideo error: ' + e.message);
       }
-    }, 150);
+    }, 200);
   } catch(e) {
-    console.log('Play error:', e);
+    log('Play error: ' + e.message);
   }
 }
 
 function stopAll(){
+  log('stopAll()');
   if(timer) {
     clearInterval(timer);
     timer = null;
   }
-  document.querySelectorAll('.sub-box').forEach(el=>{
+  
+  document.querySelectorAll('.sub-box').forEach(function(el){
     el.classList.remove('show');
     el.innerHTML='';
   });
   
-  Object.keys(players).forEach(idx=>{ 
-    const p = players[idx];
-    if(p && p.pauseVideo) {
+  Object.keys(players).forEach(function(idx){ 
+    var p = players[idx];
+    if(p && typeof p.pauseVideo === 'function') {
       try {
         p.pauseVideo();
       } catch(e) {}
@@ -241,36 +384,40 @@ function next(){
   if(isTransitioning) return;
   isTransitioning = true;
   
-  const idx=swiper.activeIndex;
+  var idx = swiper.activeIndex;
+  log('next() from ' + idx);
   
   if(idx < list.length - 1){
     swiper.slideNext();
-    setTimeout(()=>{ isTransitioning = false; }, 500);
+    setTimeout(function(){ isTransitioning = false; }, 500);
   } else {
+    log('Looping to first video');
     stopAll();
     swiper.slideTo(0, 400);
-    setTimeout(()=>{
+    setTimeout(function(){
       isTransitioning = false;
       if(userInteracted){
         play(0);
       }
-    }, 500);
+    }, 600);
   }
 }
 
 function startMon(i){
   if(timer) clearInterval(timer);
   
-  const p=players[i];
-  const end=list[i].end;
-  const start=list[i].start || 0;
-  const el=document.getElementById('sub-'+i);
-  const sDat=subs[i];
+  var p = players[i];
+  var end = list[i].end;
+  var start = list[i].start || 0;
+  var el = document.getElementById('sub-'+i);
+  var sDat = subs[i];
   
-  timer=setInterval(()=>{
-    if(!p || !p.getCurrentTime) return;
+  log('startMon(' + i + ') end=' + end);
+  
+  timer = setInterval(function(){
+    if(!p || typeof p.getCurrentTime !== 'function') return;
     
-    let t;
+    var t;
     try {
       t = p.getCurrentTime();
     } catch(e) {
@@ -278,61 +425,71 @@ function startMon(i){
     }
     
     if(end > start && t >= (end - 0.3)){
+      log('End time reached: ' + t);
       clearInterval(timer);
       timer = null;
       try {
         p.pauseVideo();
       } catch(e) {}
-      setTimeout(()=>next(), 200);
+      setTimeout(function(){ next(); }, 200);
       return;
     }
     
     if(sDat && sDat.length && el){
-      const row=sDat.find(x=>t>=x.s && t<=x.e);
+      var row = null;
+      for(var j=0; j<sDat.length; j++){
+        if(t >= sDat[j].s && t <= sDat[j].e){
+          row = sDat[j];
+          break;
+        }
+      }
       if(row){
-        const txt=row.t.replace(/\n/g,'<br>');
-        if(el.innerHTML!==txt){ 
-          el.innerHTML=txt; 
+        var txt = row.t.replace(/\n/g,'<br>');
+        if(el.innerHTML !== txt){ 
+          el.innerHTML = txt; 
           el.classList.add('show'); 
-          font(el,row.t.length); 
+          font(el, row.t.length); 
         }
       } else { 
         el.classList.remove('show'); 
-        el.innerHTML=''; 
+        el.innerHTML = ''; 
       }
     }
   }, 100);
 }
 
 function font(el,len){
-  const w=document.querySelector('.swiper')?.clientWidth||window.innerWidth;
-  let r=0.045; 
+  var w = document.querySelector('.swiper');
+  w = w ? w.clientWidth : window.innerWidth;
+  var r = 0.045; 
   if(len<=5) r=0.08; 
   else if(len<=15) r=0.06; 
   else if(len<=30) r=0.05; 
   else r=0.04;
-  el.style.fontSize=(w*r)+'px';
+  el.style.fontSize = (w*r)+'px';
 }
 
 function parseSrt(t){
-  if(!t || !t.includes('-->')) return t?[{s:0,e:9999,t:t}]:[];
-  const r=[];
-  let m;
-  const p=/(\d+)\n(\d{2}:\d{2}:\d{2},\d{3}) --> (\d{2}:\d{2}:\d{2},\d{3})\n([\s\S]*?)(?=\n\n|\n$|$)/g;
-  while((m=p.exec(t+'\n\n'))!==null){
-    r.push({s:h2s(m[2]),e:h2s(m[3]),t:m[4].trim()});
+  if(!t || t.indexOf('-->') === -1) return t ? [{s:0,e:9999,t:t}] : [];
+  var r=[];
+  var regex = /(\d+)\n(\d{2}:\d{2}:\d{2},\d{3}) --> (\d{2}:\d{2}:\d{2},\d{3})\n([\s\S]*?)(?=\n\n|\n$|$)/g;
+  var m;
+  var text = t + '\n\n';
+  while((m = regex.exec(text)) !== null){
+    r.push({s:h2s(m[2]), e:h2s(m[3]), t:m[4].trim()});
   }
   return r;
 }
 
 function h2s(s){ 
-  const p=s.split(':');
-  const c=p[2].split(','); 
-  return parseInt(p[0])*3600+parseInt(p[1])*60+parseInt(c[0])+parseInt(c[1])/1000;
+  var p = s.split(':');
+  var c = p[2].split(','); 
+  return parseInt(p[0])*3600 + parseInt(p[1])*60 + parseInt(c[0]) + parseInt(c[1])/1000;
 }
 
-if(document.readyState==='loading'){
-  document.addEventListener('DOMContentLoaded',init);
+// 페이지 로드 시 초기화
+if(document.readyState === 'loading'){
+  document.addEventListener('DOMContentLoaded', init);
 } else {
   init();
 }

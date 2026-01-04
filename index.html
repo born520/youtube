@@ -16,12 +16,9 @@
   .play-btn.hide{opacity:0;pointer-events:none;}
   .sub-box{position:absolute;left:50%;transform:translateX(-50%);bottom:10%;width:auto;max-width:90%;text-align:center;color:#fff;z-index:60;pointer-events:none;text-shadow:1px 1px 2px rgba(0,0,0,0.8);background:rgba(0,0,0,0.5);padding:8px 16px;border-radius:8px;font-weight:600;line-height:1.4;opacity:0;transition:all 0.1s;}
   .sub-box.show{opacity:1;}
-  
   .thumb{position:absolute;top:0;left:0;width:100%;height:100%;background-size:cover;background-position:center;background-repeat:no-repeat;z-index:5;transition:opacity 0.3s;}
   .thumb.hide{opacity:0;pointer-events:none;}
-  
   .player-wrap{position:absolute;top:0;left:0;width:100%;height:100%;z-index:2;}
-  
   .full .player-wrap{position:absolute;top:0;left:50%;width:177.78vh;height:100%;transform:translateX(-50%);object-fit:cover;}
   @media(max-aspect-ratio:9/16){.full .player-wrap{width:320%;height:100%;left:-110%;transform:none;}}
   .fit{display:flex;flex-direction:column;}
@@ -39,12 +36,15 @@
 <div class="swiper"><div class="swiper-wrapper" id="wrap"></div></div>
 <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
 <script>
-const list=[{"id":"sI8d4Q0zNgo","title":"","mode":"full","start":220,"end":230,"top":"","sub":"","poster":"https://i.ytimg.com/vi/EP7uhP38_fU/oardefault.jpg?sqp=-oaymwEkCJUDENAFSFqQAgHyq4qpAxMIARUAAAAAJQAAyEI9AICiQ3gB&rs=AOn4CLB6pWs87LcKUgARGuYY-d0VZiZURw"}];
+const list=[{"id":"sI8d4Q0zNgo","title":"","mode":"full","ranges":[{"s":220250,"e":230260}],"top":"","sub":"","poster":"https://i.ytimg.com/vi/EP7uhP38_fU/oardefault.jpg?sqp=-oaymwEkCJUDENAFSFqQAgHyq4qpAxMIARUAAAAAJQAAyEI9AICiQ3gB&rs=AOn4CLB6pWs87LcKUgARGuYY-d0VZiZURw"}];
 let swiper, players={}, subs={}, timer=null, playersReady=0;
 let userInteracted = false;
 let isTransitioning = false;
 let apiReady = false;
 let initAttempts = 0;
+
+// 각 영상별 현재 재생중인 챕터 인덱스 추적
+let activeSegments = {}; 
 
 function log(msg){ console.log('[Player] ' + msg); }
 function showLoading(msg){ const el = document.getElementById('loading'); if(el){ el.textContent = msg || '로딩 중...'; el.classList.add('show'); } }
@@ -57,6 +57,7 @@ function init(){
   if(!w) return;
   
   list.forEach((v,i)=>{
+    activeSegments[i] = 0; // 초기 챕터 0번
     const d=document.createElement('div'); 
     d.className='swiper-slide '+(v.mode==='fit'?'fit':'full');
     subs[i]=parseSrt(v.sub);
@@ -113,9 +114,12 @@ function createPlayers(){
   if(!window.YT || !window.YT.Player) return;
   list.forEach(function(v,i){
     try {
+      // 시작 시간은 첫 번째 챕터의 시작 시간
+      const firstStart = (v.ranges && v.ranges[0]) ? v.ranges[0].s : 0;
+      
       players[i] = new YT.Player('p-'+i, {
         videoId: v.id, host: 'https://www.youtube.com',
-        playerVars: { 'autoplay': 0, 'controls': 0, 'rel': 0, 'showinfo': 0, 'modestbranding': 1, 'playsinline': 1, 'fs': 0, 'iv_load_policy': 3, 'start': v.start || 0, 'enablejsapi': 1, 'origin': window.location.origin },
+        playerVars: { 'autoplay': 0, 'controls': 0, 'rel': 0, 'showinfo': 0, 'modestbranding': 1, 'playsinline': 1, 'fs': 0, 'iv_load_policy': 3, 'start': firstStart, 'enablejsapi': 1, 'origin': window.location.origin },
         events: { 'onReady': function(e){ onPlayerReady(e,i); }, 'onStateChange': function(e){ onStateChange(e,i); }, 'onError': function(e){ onPlayerError(e,i); } }
       });
     } catch(err) {}
@@ -156,11 +160,11 @@ function handlePlayClick(i){
   userInteracted = true;
   
   var p = players[i];
-  // 멈춤 상태(PAUSED)라면 이어보기
   if(p && typeof p.getPlayerState === 'function' && p.getPlayerState() === YT.PlayerState.PAUSED){
     p.playVideo();
   } else {
-    // 그 외(처음 시작, 종료 후 등)는 처음부터(또는 지정시간부터) 시작
+    // 처음 재생하거나 다시 시작할 땐 첫 챕터부터
+    activeSegments[i] = 0;
     play(i);
   }
 }
@@ -186,7 +190,14 @@ function play(i){
   var p = players[i];
   if(!p) return;
   if(typeof p.playVideo !== 'function'){ setTimeout(function(){ play(i); }, 500); return; }
-  var startTime = list[i].start || 0;
+  
+  // 현재 활성화된 챕터의 시작 시간 가져오기
+  var segIdx = activeSegments[i] || 0;
+  var startTime = 0;
+  if(list[i].ranges && list[i].ranges[segIdx]) {
+    startTime = list[i].ranges[segIdx].s;
+  }
+  
   try {
     p.seekTo(startTime, true);
     setTimeout(function(){ p.playVideo(); }, 200);
@@ -219,8 +230,6 @@ function next(){
 function startMon(i){
   if(timer) clearInterval(timer);
   var p = players[i];
-  var end = list[i].end;
-  var start = list[i].start || 0;
   var el = document.getElementById('sub-'+i);
   var sDat = subs[i];
   
@@ -228,13 +237,35 @@ function startMon(i){
     if(!p || typeof p.getCurrentTime !== 'function') return;
     var t; try { t = p.getCurrentTime(); } catch(e) { return; }
     
-    if(end > start && t >= (end - 0.3)){
-      clearInterval(timer); timer = null;
-      try { p.pauseVideo(); } catch(e) {}
-      setTimeout(function(){ next(); }, 200);
-      return;
+    // 현재 챕터 정보 확인
+    var segIdx = activeSegments[i] || 0;
+    var ranges = list[i].ranges;
+    
+    if(!ranges || ranges.length === 0) return;
+    
+    // 현재 챕터의 끝 시간
+    var currentEnd = ranges[segIdx].e;
+    var currentStart = ranges[segIdx].s;
+
+    // 끝 시간에 도달했는지 체크 (유효한 끝 시간이 있을 때만)
+    if(currentEnd > currentStart && t >= (currentEnd - 0.3)){
+       // 다음 챕터가 있는지 확인
+       if(segIdx < ranges.length - 1) {
+         // 다음 챕터로 점프
+         activeSegments[i] = segIdx + 1;
+         var nextStart = ranges[segIdx + 1].s;
+         console.log('Jumping to next chapter: ' + nextStart);
+         p.seekTo(nextStart, true);
+       } else {
+         // 더 이상 챕터가 없으면 다음 영상(슬라이드)으로 이동
+         clearInterval(timer); timer = null;
+         try { p.pauseVideo(); } catch(e) {}
+         setTimeout(function(){ next(); }, 200);
+         return;
+       }
     }
     
+    // 자막 표시 로직
     if(sDat && sDat.length && el){
       var row = null;
       for(var j=0; j<sDat.length; j++){

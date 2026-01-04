@@ -8,61 +8,22 @@
   <style>
     body, html { margin: 0; padding: 0; width: 100%; background: #000; overflow: hidden; font-family: -apple-system, sans-serif; }
     body, html, .swiper, .swiper-slide { height: 100vh; height: 100dvh; }
-    
     .swiper { width: 100%; max-width: 480px; margin: 0 auto; background: #000; position: relative; }
     .swiper-slide { background: #000; display: flex; flex-direction: column; justify-content: center; align-items: center; overflow: hidden; position: relative; }
-
-    /* iframe은 클릭 가능해야 함 (구멍 뚫린 곳으로 클릭 전달) */
     iframe { width: 100%; height: 100%; border: 0; pointer-events: auto; }
-    
-    /* [스마트 레이어] 상단/중앙 클릭은 가로채고, 우측 하단만 뚫어줌 */
-    .smart-layer {
-      position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 50;
-      /* clip-path로 우측 하단(광고 스킵 버튼 위치)만 잘라냄 */
-      /* (0,0) -> (100%,0) -> (100%, 85%) -> (65%, 85%) -> (65%, 100%) -> (0, 100%) */
-      clip-path: polygon(0% 0%, 100% 0%, 100% 80%, 65% 80%, 65% 100%, 0% 100%);
-      background: transparent;
-      cursor: pointer;
-    }
-
-    /* [재생 버튼] 유튜브 스타일 */
-    .play-btn {
-      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-      width: 70px; height: 70px; z-index: 55;
-      background: rgba(0,0,0,0.6); border-radius: 50%;
-      display: flex; justify-content: center; align-items: center;
-      pointer-events: none; /* 클릭은 뒤에 있는 smart-layer가 받음 */
-      transition: opacity 0.2s;
-    }
-    .play-btn::after {
-      content: ''; display: block;
-      width: 0; height: 0;
-      border-left: 25px solid #fff;
-      border-top: 15px solid transparent;
-      border-bottom: 15px solid transparent;
-      margin-left: 5px;
-    }
-    /* 재생 중이면 버튼 숨김 */
+    .smart-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 50; clip-path: polygon(0% 0%, 100% 0%, 100% 80%, 65% 80%, 65% 100%, 0% 100%); background: transparent; cursor: pointer; }
+    .play-btn { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 70px; height: 70px; z-index: 55; background: rgba(0,0,0,0.6); border-radius: 50%; display: flex; justify-content: center; align-items: center; pointer-events: none; transition: opacity 0.2s; }
+    .play-btn::after { content: ''; display: block; width: 0; height: 0; border-left: 25px solid #fff; border-top: 15px solid transparent; border-bottom: 15px solid transparent; margin-left: 5px; }
     .play-btn.playing { opacity: 0; }
-
-    /* 자막 오버레이 */
-    .subtitle-overlay {
-      position: absolute; left: 50%; transform: translateX(-50%); bottom: 12%; 
-      width: auto; max-width: 90%; text-align: center; color: #fff; z-index: 60; pointer-events: none; 
-      text-shadow: 1px 1px 2px rgba(0,0,0,0.8); background: rgba(0, 0, 0, 0.5); padding: 8px 16px; border-radius: 8px;
-      font-weight: 600; line-height: 1.4; transition: all 0.1s; opacity: 0; 
-    }
+    .subtitle-overlay { position: absolute; left: 50%; transform: translateX(-50%); bottom: 8%; width: auto; max-width: 90%; text-align: center; color: #fff; z-index: 60; pointer-events: none; text-shadow: 1px 1px 2px rgba(0,0,0,0.8); background: rgba(0, 0, 0, 0.5); padding: 8px 16px; border-radius: 8px; font-weight: 600; line-height: 1.4; transition: all 0.1s; opacity: 0; }
     .subtitle-overlay.active { opacity: 1; }
-
     .slide-full .video-container iframe { position: absolute; top: 0; left: 50%; width: 177.78vh; height: 100dvh; transform: translateX(-50%); object-fit: cover; }
     @media (max-aspect-ratio: 9/16) { .slide-full .video-container iframe { width: 320%; height: 100%; left: -110%; transform: none; } }
-    
     .slide-fit { display: flex; flex-direction: column; background: #000; }
     .slide-fit .top-msg { width: 100%; padding: 15px; box-sizing: border-box; color: #fff; text-align: center; z-index: 10; font-weight: bold; font-size: 18px; min-height: 50px; flex-shrink: 0; }
     .slide-fit .video-wrapper { position: relative; width: 100%; flex: 1; display: flex; align-items: center; justify-content: center; overflow: hidden; }
     .slide-fit .video-wrapper iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; }
-    .slide-fit .subtitle-overlay { bottom: 10%; }
-    
+    .slide-fit .subtitle-overlay { bottom: 5%; }
     .title-badge { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.6); color: #fff; padding: 5px 15px; border-radius: 15px; font-size: 14px; z-index: 20; opacity: 0; transition: opacity 0.5s; pointer-events: none; }
     .swiper-slide-active .title-badge { opacity: 1; }
   </style>
@@ -71,7 +32,7 @@
 <div class="swiper"><div class="swiper-wrapper" id="slide-wrapper"></div></div>
 <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
 <script>
-  const videoList = [{"videoId":"BTn8QLqevj0","title":"","viewMode":"full","start":167,"end":177,"topText":"","subtitleData":""}];
+  const videoList = [{"videoId":"BTn8QLqevj0","title":"","viewMode":"full","start":200,"end":210,"topText":"","subtitleData":""}];
   let swiper;
   let players = {};
   let subData = {}; 
@@ -82,15 +43,11 @@
     videoList.forEach((v, idx) => {
       const slide = document.createElement('div');
       slide.className = 'swiper-slide';
-      
       const parsedSubs = parseSRT(v.subtitleData);
       subData[idx] = parsedSubs;
-
-      // 스마트 레이어 및 재생 버튼 추가
       const smartLayer = `<div class="smart-layer" onclick="togglePlay(${idx})"></div>`;
       const playBtn = `<div class="play-btn" id="play-btn-${idx}"></div>`;
       const subOverlay = `<div class="subtitle-overlay" id="sub-overlay-${idx}"></div>`;
-
       let html = '';
       if (v.viewMode === 'fit') {
         slide.classList.add('slide-fit');
@@ -102,7 +59,6 @@
       slide.innerHTML = html;
       wrapper.appendChild(slide);
     });
-
     swiper = new Swiper('.swiper', {
       direction: 'vertical', effect: 'slide', speed: 400, loop: false, 
       on: { slideChange: function () { const idx = this.activeIndex; playVideo(idx); pauseVideo(this.previousIndex); } }
@@ -127,16 +83,11 @@
     return parseInt(parts[0]) * 3600 + parseInt(parts[1]) * 60 + parseInt(seconds[0]) + parseInt(seconds[1]) / 1000;
   }
 
-  // [기능] 스마트 레이어 클릭 시 재생/정지 토글
   function togglePlay(idx) {
     const player = players[idx];
     if (player && typeof player.getPlayerState === 'function') {
       const state = player.getPlayerState();
-      if (state === YT.PlayerState.PLAYING) {
-        player.pauseVideo();
-      } else {
-        player.playVideo();
-      }
+      if (state === YT.PlayerState.PLAYING) player.pauseVideo(); else player.playVideo();
     }
   }
 
@@ -144,16 +95,13 @@
     if (monitorInterval) clearInterval(monitorInterval);
     const subs = subData[idx]; const el = document.getElementById('sub-overlay-' + idx); const player = players[idx]; const vData = videoList[idx];
     if (!player) return;
-
     monitorInterval = setInterval(() => {
       if (typeof player.getCurrentTime !== 'function') return;
       const curTime = player.getCurrentTime();
-      // 종료 시간 체크 및 자동 넘김
       const endTime = (vData.end > 0) ? vData.end : player.getDuration();
-      if ((endTime > 0 && curTime >= endTime - 0.2) || player.getPlayerState() === YT.PlayerState.ENDED) {
+      if ((endTime > 0 && curTime >= endTime - 0.5) || player.getPlayerState() === YT.PlayerState.ENDED) {
          clearInterval(monitorInterval); goToNextSlide(idx); return;
       }
-      // 자막 싱크
       if (subs && subs.length > 0 && el) {
         const currentSub = subs.find(s => curTime >= s.start && curTime <= s.end);
         if (currentSub) {
@@ -165,8 +113,7 @@
   }
 
   function goToNextSlide(currentIdx) {
-    if(currentIdx < videoList.length - 1) { swiper.slideNext(); } 
-    else { swiper.slideTo(0); }
+    if(currentIdx < videoList.length - 1) swiper.slideNext(); else swiper.slideTo(0);
   }
 
   function adjustFontSize(el, len) {
@@ -186,12 +133,7 @@
     videoList.forEach((v, idx) => {
       players[idx] = new YT.Player('player-' + idx, {
         videoId: v.videoId, host: 'https://www.youtube.com',
-        playerVars: { 
-          'autoplay': 0, 'controls': 0, 'rel': 0, // 컨트롤 숨김
-          'showinfo': 0, 'modestbranding': 1, 'playsinline': 1, 'fs': 0, 'disablekb': 1, 
-          'iv_load_policy': 3, 'cc_load_policy': 0, 
-          'start': v.start, 'origin': window.location.origin 
-        },
+        playerVars: { 'autoplay': 0, 'controls': 0, 'rel': 0, 'showinfo': 0, 'modestbranding': 1, 'playsinline': 1, 'fs': 0, 'disablekb': 1, 'iv_load_policy': 3, 'cc_load_policy': 0, 'start': v.start, 'origin': window.location.origin },
         events: { 'onStateChange': (event) => onPlayerStateChange(event, idx) }
       });
     });
@@ -199,14 +141,9 @@
 
   function onPlayerStateChange(event, idx) {
     const btn = document.getElementById('play-btn-' + idx);
-    
-    if (event.data === YT.PlayerState.PLAYING) { 
-       startMonitoring(idx); 
-       if(btn) btn.classList.add('playing'); // 재생 중이면 버튼 숨김
-    } 
+    if (event.data === YT.PlayerState.PLAYING) { startMonitoring(idx); if(btn) btn.classList.add('playing'); } 
     else if (event.data === YT.PlayerState.PAUSED || event.data === YT.PlayerState.ENDED) { 
-       if (monitorInterval) clearInterval(monitorInterval); 
-       if(btn) btn.classList.remove('playing'); // 멈추면 버튼 보임
+       if (monitorInterval) clearInterval(monitorInterval); if(btn) btn.classList.remove('playing'); 
     }
   }
 

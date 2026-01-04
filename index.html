@@ -31,49 +31,76 @@
 <script src="https://www.youtube.com/iframe_api"></script>
 <script>
 const list=[{"id":"BTn8QLqevj0","title":"","mode":"full","start":200,"end":210,"top":"","sub":""}];
-let swiper, players={}, subs={}, timer=null, apiReady=false, slidersReady=false;
+let swiper, players={}, subs={}, timer=null, playersReady=0;
 
 function init(){
   const w=document.getElementById('wrap');
   list.forEach((v,i)=>{
-    const d=document.createElement('div'); d.className='swiper-slide '+(v.mode==='fit'?'fit':'full');
+    const d=document.createElement('div'); 
+    d.className='swiper-slide '+(v.mode==='fit'?'fit':'full');
     subs[i]=parseSrt(v.sub);
     const L=`<div class="smart-layer" onclick="toggle(${i})"></div>`;
     const B=`<div class="play-btn" id="btn-${i}"></div>`;
     const S=`<div class="sub-box" id="sub-${i}"></div>`;
     const core = `<div id="p-${i}"></div>${L}${B}${S}`;
     
-    if(v.mode==='fit') d.innerHTML=`${v.top?`<div class="top">${v.top}</div>`:''}<div class="vid-wrap">${core}</div>`;
-    else d.innerHTML=`<div class="video-container">${core}</div><div class="badge">${v.title}</div>`;
+    if(v.mode==='fit') {
+      d.innerHTML=`${v.top?`<div class="top">${v.top}</div>`:''}<div class="vid-wrap">${core}</div>`;
+    } else {
+      d.innerHTML=`<div class="video-container">${core}</div><div class="badge">${v.title}</div>`;
+    }
     w.appendChild(d);
   });
   
   swiper=new Swiper('.swiper',{
-    direction:'vertical',effect:'slide',speed:400,
-    on:{ slideChange:()=>{ stopAll(); play(swiper.activeIndex); } }
+    direction:'vertical',
+    effect:'slide',
+    speed:400,
+    loop: false,
+    on:{ 
+      slideChange:()=>{ 
+        stopAll(); 
+        setTimeout(()=>play(swiper.activeIndex), 200);
+      } 
+    }
   });
   
-  slidersReady=true;
-  tryStart();
-  
-  window.addEventListener('resize',()=>{document.querySelectorAll('.sub-box.show').forEach(el=>font(el,el.innerText.length));});
+  window.addEventListener('resize',()=>{
+    document.querySelectorAll('.sub-box.show').forEach(el=>font(el,el.innerText.length));
+  });
 }
 
 function onYouTubeIframeAPIReady(){
   list.forEach((v,i)=>{
     players[i]=new YT.Player('p-'+i,{
-      videoId:v.id, host:'https://www.youtube.com',
-      playerVars:{'autoplay':0,'controls':0,'rel':0,'showinfo':0,'modestbranding':1,'playsinline':1,'fs':0,'iv_load_policy':3,'start':v.start,'origin':window.location.origin},
-      events:{'onStateChange':(e)=>state(e,i)}
+      videoId:v.id, 
+      host:'https://www.youtube.com',
+      playerVars:{
+        'autoplay':0,
+        'controls':0,
+        'rel':0,
+        'showinfo':0,
+        'modestbranding':1,
+        'playsinline':1,
+        'fs':0,
+        'iv_load_policy':3,
+        'start':v.start,
+        'enablejsapi':1,
+        'origin':window.location.origin
+      },
+      events:{
+        'onReady':(e)=>onPlayerReady(e,i),
+        'onStateChange':(e)=>state(e,i)
+      }
     });
   });
-  apiReady=true;
-  tryStart();
 }
 
-function tryStart(){
-  if(apiReady && slidersReady){
-    setTimeout(()=>play(0), 500);
+function onPlayerReady(e,i){
+  playersReady++;
+  // 모든 플레이어 준비 완료 시 첫 영상 자동 재생
+  if(playersReady === list.length){
+    setTimeout(()=>play(0), 800);
   }
 }
 
@@ -84,73 +111,133 @@ function state(e,i){
     startMon(i); 
   } else {
     if(btn) btn.classList.remove('hide');
-    if(e.data===YT.PlayerState.ENDED) next();
+    if(e.data===YT.PlayerState.ENDED){
+      // 영상 종료 시 다음 영상으로
+      clearInterval(timer);
+      setTimeout(()=>next(), 300);
+    }
   }
 }
 
 function toggle(i){
   const p=players[i];
-  if(p&&p.getPlayerState){ (p.getPlayerState()===YT.PlayerState.PLAYING)?p.pauseVideo():p.playVideo(); }
+  if(p && p.getPlayerState){ 
+    if(p.getPlayerState()===YT.PlayerState.PLAYING){
+      p.pauseVideo();
+    } else {
+      p.playVideo();
+    }
+  }
 }
 
 function play(i){
   const p=players[i];
-  if(p&&p.playVideo){ 
+  if(p && p.playVideo){ 
     const startTime = list[i].start || 0;
-    p.seekTo(startTime, true);
-    p.playVideo(); 
+    try {
+      p.seekTo(startTime, true);
+      setTimeout(()=>p.playVideo(), 100);
+    } catch(e) {
+      console.log('Play error:', e);
+    }
   }
 }
 
 function stopAll(){
-  if(timer) clearInterval(timer); 
-  Object.values(players).forEach(p=>{ if(p&&p.pauseVideo) p.pauseVideo(); });
+  if(timer) {
+    clearInterval(timer);
+    timer = null;
+  }
+  Object.values(players).forEach(p=>{ 
+    if(p && p.pauseVideo) {
+      try {
+        p.pauseVideo();
+      } catch(e) {}
+    }
+  });
 }
 
 function next(){
   const idx=swiper.activeIndex;
-  (idx<list.length-1) ? swiper.slideNext() : swiper.slideTo(0);
+  if(idx < list.length - 1){
+    swiper.slideNext();
+  } else {
+    // 마지막 영상 후 처음으로
+    swiper.slideTo(0);
+  }
 }
 
 function startMon(i){
   if(timer) clearInterval(timer);
-  const p=players[i], end=list[i].end, el=document.getElementById('sub-'+i), sDat=subs[i];
+  
+  const p=players[i];
+  const end=list[i].end;
+  const el=document.getElementById('sub-'+i);
+  const sDat=subs[i];
   
   timer=setInterval(()=>{
-    if(!p||!p.getCurrentTime) return;
+    if(!p || !p.getCurrentTime) return;
+    
     const t=p.getCurrentTime();
     
-    // 종료 시간 체크
-    if(end > 0 && t >= (end - 0.3)){
-      p.pauseVideo();
+    // 종료 시간 체크 (end가 0이면 무시)
+    if(end > 0 && t >= (end - 0.2)){
       clearInterval(timer);
-      setTimeout(()=>next(), 300);
+      p.pauseVideo();
+      setTimeout(()=>next(), 200);
       return;
     }
     
-    if(sDat&&sDat.length&&el){
+    // 자막 처리
+    if(sDat && sDat.length && el){
       const row=sDat.find(x=>t>=x.s && t<=x.e);
       if(row){
         const txt=row.t.replace(/\n/g,'<br>');
-        if(el.innerHTML!==txt){ el.innerHTML=txt; el.classList.add('show'); font(el,row.t.length); }
-      } else { el.classList.remove('show'); el.innerHTML=''; }
+        if(el.innerHTML!==txt){ 
+          el.innerHTML=txt; 
+          el.classList.add('show'); 
+          font(el,row.t.length); 
+        }
+      } else { 
+        el.classList.remove('show'); 
+        el.innerHTML=''; 
+      }
     }
-  },100);
+  }, 100);
 }
 
 function font(el,len){
   const w=document.querySelector('.swiper')?.clientWidth||window.innerWidth;
-  let r=0.045; if(len<=5)r=0.08; else if(len<=15)r=0.06; else if(len<=30)r=0.05; else r=0.04;
+  let r=0.045; 
+  if(len<=5) r=0.08; 
+  else if(len<=15) r=0.06; 
+  else if(len<=30) r=0.05; 
+  else r=0.04;
   el.style.fontSize=(w*r)+'px';
 }
 
 function parseSrt(t){
-  if(!t||!t.includes('-->')) return t?[{s:0,e:9999,t:t}]:[];
-  const r=[]; let m; const p=/(\d+)\n(\d{2}:\d{2}:\d{2},\d{3}) --> (\d{2}:\d{2}:\d{2},\d{3})\n([\s\S]*?)(?=\n\n|\n$|$)/g;
-  while((m=p.exec(t+'\n\n'))!==null) r.push({s:h2s(m[2]),e:h2s(m[3]),t:m[4].trim()});
+  if(!t || !t.includes('-->')) return t?[{s:0,e:9999,t:t}]:[];
+  const r=[];
+  let m;
+  const p=/(\d+)\n(\d{2}:\d{2}:\d{2},\d{3}) --> (\d{2}:\d{2}:\d{2},\d{3})\n([\s\S]*?)(?=\n\n|\n$|$)/g;
+  while((m=p.exec(t+'\n\n'))!==null){
+    r.push({s:h2s(m[2]),e:h2s(m[3]),t:m[4].trim()});
+  }
   return r;
 }
-function h2s(s){ const p=s.split(':'), c=p[2].split(','); return parseInt(p[0])*3600+parseInt(p[1])*60+parseInt(c[0])+parseInt(c[1])/1000; }
 
-if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init); else init();
-</script></body></html>
+function h2s(s){ 
+  const p=s.split(':');
+  const c=p[2].split(','); 
+  return parseInt(p[0])*3600+parseInt(p[1])*60+parseInt(c[0])+parseInt(c[1])/1000;
+}
+
+if(document.readyState==='loading'){
+  document.addEventListener('DOMContentLoaded',init);
+} else {
+  init();
+}
+</script>
+</body>
+</html>

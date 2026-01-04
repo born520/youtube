@@ -9,7 +9,6 @@
   .swiper{width:100%;height:100%;max-width:480px;margin:0 auto;background:#000;position:relative;}
   .swiper-slide{display:flex;flex-direction:column;justify-content:center;align-items:center;overflow:hidden;position:relative;}
   iframe{width:100%;height:100%;border:0;pointer-events:auto;}
-  /* 스마트 레이어 */
   .smart-layer{position:absolute;top:0;left:0;width:100%;height:100%;z-index:50;background:transparent;cursor:pointer;
     clip-path: polygon(0% 0%, 100% 0%, 100% 80%, 65% 80%, 65% 100%, 0% 100%);}
   .play-btn{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:70px;height:70px;z-index:55;background:rgba(0,0,0,0.6);border-radius:50%;display:flex;justify-content:center;align-items:center;pointer-events:none;transition:opacity 0.2s;}
@@ -32,7 +31,7 @@
 <script src="https://www.youtube.com/iframe_api"></script>
 <script>
 const list=[{"id":"BTn8QLqevj0","title":"","mode":"full","start":200,"end":210,"top":"","sub":""}];
-let swiper, players={}, subs={}, timer=null;
+let swiper, players={}, subs={}, timer=null, apiReady=false, slidersReady=false;
 
 function init(){
   const w=document.getElementById('wrap');
@@ -54,6 +53,9 @@ function init(){
     on:{ slideChange:()=>{ stopAll(); play(swiper.activeIndex); } }
   });
   
+  slidersReady=true;
+  tryStart();
+  
   window.addEventListener('resize',()=>{document.querySelectorAll('.sub-box.show').forEach(el=>font(el,el.innerText.length));});
 }
 
@@ -65,6 +67,14 @@ function onYouTubeIframeAPIReady(){
       events:{'onStateChange':(e)=>state(e,i)}
     });
   });
+  apiReady=true;
+  tryStart();
+}
+
+function tryStart(){
+  if(apiReady && slidersReady){
+    setTimeout(()=>play(0), 500);
+  }
 }
 
 function state(e,i){
@@ -85,7 +95,11 @@ function toggle(i){
 
 function play(i){
   const p=players[i];
-  if(p&&p.playVideo){ p.seekTo(list[i].start||0); p.playVideo(); }
+  if(p&&p.playVideo){ 
+    const startTime = list[i].start || 0;
+    p.seekTo(startTime, true);
+    p.playVideo(); 
+  }
 }
 
 function stopAll(){
@@ -106,10 +120,11 @@ function startMon(i){
     if(!p||!p.getCurrentTime) return;
     const t=p.getCurrentTime();
     
-    // 종료 시간 체크 (0.5초 미리 감지)
-    if(end>0 && t >= end-0.5){
+    // 종료 시간 체크
+    if(end > 0 && t >= (end - 0.3)){
+      p.pauseVideo();
       clearInterval(timer);
-      next();
+      setTimeout(()=>next(), 300);
       return;
     }
     

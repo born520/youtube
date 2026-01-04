@@ -58,7 +58,7 @@ function init(){
     d.className='swiper-slide '+(v.mode==='fit'?'fit':'full');
     subs[i]=parseSrt(v.sub);
     
-    // [변경됨] 사용자 지정 썸네일(v.poster)이 있으면 그것을 쓰고, 없으면 유튜브 기본 썸네일 사용
+    // [확인] 썸네일(poster)가 있으면 쓰고 없으면 유튜브 기본 사용
     const imgUrl = v.poster ? v.poster : getThumbUrl(v.id);
     
     const thumb='<div class="thumb" id="thumb-'+i+'" style="background-image:url(\''+imgUrl+'\')"></div>';
@@ -93,8 +93,6 @@ function init(){
   
   loadYouTubeAPI();
 }
-
-// ... 아래 내용은 기존 플레이어 로직과 동일 ...
 
 function loadYouTubeAPI(){
   showLoading('YouTube API 로딩 중...');

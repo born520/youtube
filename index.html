@@ -4,287 +4,154 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>유튜브 플레이어</title>
-  
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
-  
   <style>
     body, html { margin: 0; padding: 0; width: 100%; background: #000; overflow: hidden; font-family: -apple-system, sans-serif; }
     body, html, .swiper, .swiper-slide { height: 100vh; height: 100dvh; }
-
-    /* [중요] 플레이어 최대 너비 제한 (데스크탑 대응) */
     .swiper { width: 100%; max-width: 480px; margin: 0 auto; background: #000; position: relative; }
     .swiper-slide { background: #000; display: flex; flex-direction: column; justify-content: center; align-items: center; overflow: hidden; position: relative; }
-
     iframe { width: 100%; height: 100%; border: 0; pointer-events: auto; }
-    
-    /* 자막 오버레이 스타일 */
     .subtitle-overlay {
-      position: absolute; 
-      left: 50%; transform: translateX(-50%);
-      bottom: 8%; 
-      
-      width: auto;      
-      max-width: 90%;   
-      
-      text-align: center;
-      color: #fff; 
-      z-index: 60; 
-      pointer-events: none; 
-      
-      text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
-      background: rgba(0, 0, 0, 0.5);
-      padding: 8px 16px;
-      border-radius: 8px;
-      
-      font-weight: 600; 
-      line-height: 1.4; 
-      transition: all 0.1s;
-      
-      opacity: 0; 
+      position: absolute; left: 50%; transform: translateX(-50%); bottom: 8%; 
+      width: auto; max-width: 90%; text-align: center; color: #fff; z-index: 60; pointer-events: none; 
+      text-shadow: 1px 1px 2px rgba(0,0,0,0.8); background: rgba(0, 0, 0, 0.5); padding: 8px 16px; border-radius: 8px;
+      font-weight: 600; line-height: 1.4; transition: all 0.1s; opacity: 0; 
     }
     .subtitle-overlay.active { opacity: 1; }
-
-    /* [MODE: FULL] */
-    .slide-full .video-container iframe {
-      position: absolute; top: 0; left: 50%;
-      width: 177.78vh; height: 100dvh;
-      transform: translateX(-50%); object-fit: cover;
-    }
-    @media (max-aspect-ratio: 9/16) {
-      .slide-full .video-container iframe { width: 320%; height: 100%; left: -110%; transform: none; }
-    }
-
-    /* [MODE: FIT] */
-    .slide-fit {
-      display: flex; flex-direction: column; background: #000;
-    }
-    .slide-fit .top-msg {
-      width: 100%; padding: 15px; box-sizing: border-box;
-      color: #fff; text-align: center; z-index: 10;
-      font-weight: bold; font-size: 18px; min-height: 50px;
-      flex-shrink: 0;
-    }
-    .slide-fit .video-wrapper {
-      position: relative; width: 100%; flex: 1;
-      display: flex; align-items: center; justify-content: center;
-      overflow: hidden;
-    }
-    .slide-fit .video-wrapper iframe {
-      position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; 
-    }
+    .slide-full .video-container iframe { position: absolute; top: 0; left: 50%; width: 177.78vh; height: 100dvh; transform: translateX(-50%); object-fit: cover; }
+    @media (max-aspect-ratio: 9/16) { .slide-full .video-container iframe { width: 320%; height: 100%; left: -110%; transform: none; } }
+    .slide-fit { display: flex; flex-direction: column; background: #000; }
+    .slide-fit .top-msg { width: 100%; padding: 15px; box-sizing: border-box; color: #fff; text-align: center; z-index: 10; font-weight: bold; font-size: 18px; min-height: 50px; flex-shrink: 0; }
+    .slide-fit .video-wrapper { position: relative; width: 100%; flex: 1; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+    .slide-fit .video-wrapper iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; }
     .slide-fit .subtitle-overlay { bottom: 5%; }
-
-    .title-badge {
-      position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
-      background: rgba(0,0,0,0.6); color: #fff; padding: 5px 15px;
-      border-radius: 15px; font-size: 14px; z-index: 20;
-      opacity: 0; transition: opacity 0.5s; pointer-events: none;
-    }
+    .title-badge { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.6); color: #fff; padding: 5px 15px; border-radius: 15px; font-size: 14px; z-index: 20; opacity: 0; transition: opacity 0.5s; pointer-events: none; }
     .swiper-slide-active .title-badge { opacity: 1; }
   </style>
 </head>
 <body>
-
-<div class="swiper">
-  <div class="swiper-wrapper" id="slide-wrapper"></div>
-</div>
-
+<div class="swiper"><div class="swiper-wrapper" id="slide-wrapper"></div></div>
 <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
 <script>
   const videoList = [{"videoId":"XWELTbfgO3U","title":"","viewMode":"fit","start":167,"end":200,"topText":"테스트 페이지","subtitleData":""}];
   let swiper;
   let players = {};
   let subData = {}; 
-  let subInterval = null; 
+  let monitorInterval = null; 
 
   function initApp() {
     const wrapper = document.getElementById('slide-wrapper');
-    
     videoList.forEach((v, idx) => {
       const slide = document.createElement('div');
       slide.className = 'swiper-slide';
-      
       const parsedSubs = parseSRT(v.subtitleData);
       subData[idx] = parsedSubs;
-
       let html = '';
       const subOverlay = `<div class="subtitle-overlay" id="sub-overlay-${idx}"></div>`;
-
       if (v.viewMode === 'fit') {
         slide.classList.add('slide-fit');
-        html = `
-          ${v.topText ? `<div class="top-msg">${v.topText}</div>` : ''}
-          <div class="video-wrapper">
-            <div id="player-${idx}"></div>
-            ${subOverlay}
-          </div>`;
+        html = `${v.topText ? `<div class="top-msg">${v.topText}</div>` : ''}<div class="video-wrapper"><div id="player-${idx}"></div>${subOverlay}</div>`;
       } else {
         slide.classList.add('slide-full');
-        html = `
-          <div class="video-container">
-            <div id="player-${idx}"></div>
-            ${subOverlay}
-          </div>
-          <div class="title-badge">${v.title}</div>`;
+        html = `<div class="video-container"><div id="player-${idx}"></div>${subOverlay}</div><div class="title-badge">${v.title}</div>`;
       }
       slide.innerHTML = html;
       wrapper.appendChild(slide);
     });
 
     swiper = new Swiper('.swiper', {
-      direction: 'vertical',
-      effect: 'slide',
-      speed: 400,
-      loop: false, 
-      on: {
-        slideChange: function () {
-          const idx = this.activeIndex;
-          playVideo(idx);
-          pauseVideo(this.previousIndex);
-        }
-      }
+      direction: 'vertical', effect: 'slide', speed: 400, loop: false, 
+      on: { slideChange: function () { const idx = this.activeIndex; playVideo(idx); pauseVideo(this.previousIndex); } }
     });
-
     loadYoutubeApi();
-    
-    window.addEventListener('resize', () => {
-       document.querySelectorAll('.subtitle-overlay.active').forEach(el => {
-           adjustFontSize(el, el.innerText.length);
-       });
-    });
+    window.addEventListener('resize', () => { document.querySelectorAll('.subtitle-overlay.active').forEach(el => { adjustFontSize(el, el.innerText.length); }); });
   }
 
   function parseSRT(srtText) {
     if (!srtText) return [];
-    if (!srtText.includes('-->')) {
-       return [{ start: 0, end: 99999, text: srtText }];
-    }
+    if (!srtText.includes('-->')) return [{ start: 0, end: 99999, text: srtText }];
     const pattern = /(\d+)\n(\d{2}:\d{2}:\d{2},\d{3}) --> (\d{2}:\d{2}:\d{2},\d{3})\n([\s\S]*?)(?=\n\n|\n$|$)/g;
-    const result = [];
-    let match;
+    const result = []; let match;
     while ((match = pattern.exec(srtText + '\n\n')) !== null) {
-      result.push({
-        start: timeToSeconds(match[2]),
-        end: timeToSeconds(match[3]),
-        text: match[4].trim()
-      });
+      result.push({ start: timeToSeconds(match[2]), end: timeToSeconds(match[3]), text: match[4].trim() });
     }
     return result;
   }
 
   function timeToSeconds(timeStr) {
-    const parts = timeStr.split(':');
-    const seconds = parts[2].split(',');
+    const parts = timeStr.split(':'); const seconds = parts[2].split(',');
     return parseInt(parts[0]) * 3600 + parseInt(parts[1]) * 60 + parseInt(seconds[0]) + parseInt(seconds[1]) / 1000;
   }
 
-  function startSubtitleSync(idx) {
-    if (subInterval) clearInterval(subInterval);
-    const subs = subData[idx];
-    const el = document.getElementById('sub-overlay-' + idx);
-    const player = players[idx];
-    if (!subs || subs.length === 0 || !player || !el) return;
+  function startMonitoring(idx) {
+    if (monitorInterval) clearInterval(monitorInterval);
+    const subs = subData[idx]; const el = document.getElementById('sub-overlay-' + idx); const player = players[idx]; const vData = videoList[idx];
+    if (!player) return;
 
-    subInterval = setInterval(() => {
+    monitorInterval = setInterval(() => {
       if (typeof player.getCurrentTime !== 'function') return;
       const curTime = player.getCurrentTime();
-      const currentSub = subs.find(s => curTime >= s.start && curTime <= s.end);
-      
-      if (currentSub) {
-        const newText = currentSub.text.replace(/\n/g, '<br>');
-        if (el.innerHTML !== newText) {
-           el.innerHTML = newText;
-           el.classList.add('active');
-           adjustFontSize(el, currentSub.text.length);
-        }
-      } else {
-        el.classList.remove('active');
-        el.innerHTML = '';
+      // 종료 시간 체크
+      const endTime = (vData.end > 0) ? vData.end : player.getDuration();
+      if ((endTime > 0 && curTime >= endTime - 0.2) || player.getPlayerState() === YT.PlayerState.ENDED) {
+         clearInterval(monitorInterval); goToNextSlide(idx); return;
+      }
+      // 자막 싱크
+      if (subs && subs.length > 0 && el) {
+        const currentSub = subs.find(s => curTime >= s.start && curTime <= s.end);
+        if (currentSub) {
+          const newText = currentSub.text.replace(/\n/g, '<br>');
+          if (el.innerHTML !== newText) { el.innerHTML = newText; el.classList.add('active'); adjustFontSize(el, currentSub.text.length); }
+        } else { el.classList.remove('active'); el.innerHTML = ''; }
       }
     }, 100); 
+  }
+
+  function goToNextSlide(currentIdx) {
+    if(currentIdx < videoList.length - 1) { swiper.slideNext(); } 
+    else { swiper.slideTo(0); }
   }
 
   function adjustFontSize(el, len) {
     const container = document.querySelector('.swiper');
     const containerWidth = container ? container.clientWidth : window.innerWidth;
-
     let ratio = 0.045; 
-
-    if (len <= 5) {
-      ratio = 0.08; 
-    } else if (len <= 15) {
-      ratio = 0.06; 
-    } else if (len <= 30) {
-      ratio = 0.05; 
-    } else {
-      ratio = 0.04; 
-    }
-
-    const fontSizePx = containerWidth * ratio;
-    el.style.fontSize = fontSizePx + 'px';
+    if (len <= 5) ratio = 0.08; else if (len <= 15) ratio = 0.06; else if (len <= 30) ratio = 0.05; else ratio = 0.04; 
+    el.style.fontSize = (containerWidth * ratio) + 'px';
   }
 
   function loadYoutubeApi() {
-    var tag = document.createElement('script');
-    tag.src = "https://www.youtube.com/iframe_api";
-    var firstScriptTag = document.getElementsByTagName('script')[0];
-    firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+    var tag = document.createElement('script'); tag.src = "https://www.youtube.com/iframe_api";
+    var firstScriptTag = document.getElementsByTagName('script')[0]; firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
   }
 
   window.onYouTubeIframeAPIReady = function() {
     videoList.forEach((v, idx) => {
       players[idx] = new YT.Player('player-' + idx, {
-        videoId: v.videoId,
-        host: 'https://www.youtube.com',
-        playerVars: {
-          'autoplay': 0, 
-          'controls': 0, 
-          'rel': 0, 
-          'showinfo': 0, 'modestbranding': 1, 'playsinline': 1, 
-          'fs': 1, 
-          'disablekb': 0, 
-          'iv_load_policy': 3,
-          'cc_load_policy': 0, 
-          'start': v.start, 'end': v.end > 0 ? v.end : undefined,
-          'origin': window.location.origin
-        },
-        events: {
-          'onStateChange': (event) => onPlayerStateChange(event, idx)
-        }
+        videoId: v.videoId, host: 'https://www.youtube.com',
+        playerVars: { 'autoplay': 0, 'controls': 0, 'rel': 0, 'showinfo': 0, 'modestbranding': 1, 'playsinline': 1, 'fs': 0, 'disablekb': 0, 'iv_load_policy': 3, 'cc_load_policy': 0, 'start': v.start, 'origin': window.location.origin },
+        events: { 'onStateChange': (event) => onPlayerStateChange(event, idx) }
       });
     });
   };
 
   function onPlayerStateChange(event, idx) {
-    if (event.data === YT.PlayerState.PLAYING) startSubtitleSync(idx); 
-    else if (subInterval) clearInterval(subInterval); 
-
-    if (event.data === YT.PlayerState.ENDED) {
-      if(idx < videoList.length - 1) swiper.slideNext();
-      else {
-        swiper.slideTo(0);
-      }
-    }
+    if (event.data === YT.PlayerState.PLAYING) { startMonitoring(idx); } 
+    else if (event.data === YT.PlayerState.PAUSED) { if (monitorInterval) clearInterval(monitorInterval); }
   }
 
   function playVideo(idx) {
     if (players[idx] && typeof players[idx].playVideo === 'function') {
-      const v = videoList[idx];
-      players[idx].seekTo(v.start || 0);
-      players[idx].playVideo();
-      startSubtitleSync(idx); 
+      const v = videoList[idx]; players[idx].seekTo(v.start || 0); players[idx].playVideo(); startMonitoring(idx); 
     }
   }
 
   function pauseVideo(idx) {
-    if (players[idx] && typeof players[idx].pauseVideo === 'function') {
-        players[idx].pauseVideo();
-    }
-    if (subInterval) clearInterval(subInterval); 
+    if (players[idx] && typeof players[idx].pauseVideo === 'function') { players[idx].pauseVideo(); }
+    if (monitorInterval) clearInterval(monitorInterval); 
   }
-
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initApp);
-  else initApp();
+  
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initApp); else initApp();
 </script>
 </body>
 </html>

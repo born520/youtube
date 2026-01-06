@@ -1,361 +1,115 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Player</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
 <style>
-  /* 기본 스타일 */
   body,html{margin:0;padding:0;width:100%;height:100%;background:#000;overflow:hidden;font-family:sans-serif;}
   .swiper{width:100%;height:100%;max-width:480px;margin:0 auto;background:#000;position:relative;}
   .swiper-slide{display:flex;flex-direction:column;justify-content:center;align-items:center;overflow:hidden;position:relative;background:#000;}
-  iframe{width:100%;height:100%;border:0;pointer-events:auto;}
-  
-  /* 공통: 스마트 레이어 */
-  .smart-layer{
-    position:absolute;top:0;left:0;width:100%;height:100%;z-index:50;background:transparent;cursor:pointer;
-    clip-path: polygon(0% 0%, 100% 0%, 100% 80%, 65% 80%, 65% 100%, 0% 100%);
-  }
-  
-  .play-btn{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:70px;height:70px;z-index:55;background:rgba(0,0,0,0.6);border-radius:50%;display:flex;justify-content:center;align-items:center;cursor:pointer;transition:opacity 0.2s;}
+  iframe{width:100%;height:100%;border:0;}
+  .thumb{position:absolute;top:0;left:50%;transform:translateX(-50%);width:177.78vh;height:100%;background-size:cover;background-position:center;z-index:5;transition:opacity 0.3s;}
+  @media(max-aspect-ratio:9/16){.thumb{width:320%;left:-110%;transform:none;}}
+  .thumb.hide{opacity:0;pointer-events:none;}
+  .smart-layer{position:absolute;top:0;left:0;width:100%;height:100%;z-index:50;background:transparent;cursor:pointer;clip-path:polygon(0% 0%, 100% 0%, 100% 80%, 65% 80%, 65% 100%, 0% 100%);}
+  .play-btn{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:70px;height:70px;z-index:55;background:rgba(0,0,0,0.6);border-radius:50%;display:flex;justify-content:center;align-items:center;}
   .play-btn::after{content:'';width:0;height:0;border-left:25px solid #fff;border-top:15px solid transparent;border-bottom:15px solid transparent;margin-left:5px;}
   .play-btn.hide{opacity:0;pointer-events:none;}
-  
-  .sub-box{position:absolute;left:50%;transform:translateX(-50%);bottom:10%;width:auto;max-width:90%;text-align:center;color:#fff;z-index:60;pointer-events:none;text-shadow:1px 1px 2px rgba(0,0,0,0.8);background:rgba(0,0,0,0.5);padding:8px 16px;border-radius:8px;font-weight:600;line-height:1.4;opacity:0;transition:all 0.1s;}
+  .sub-box{position:absolute;left:50%;transform:translateX(-50%);bottom:10%;max-width:90%;text-align:center;color:#fff;z-index:60;pointer-events:none;text-shadow:1px 1px 2px #000;background:rgba(0,0,0,0.5);padding:8px 16px;border-radius:8px;opacity:0;transition:all 0.1s;}
   .sub-box.show{opacity:1;}
-  
-  .thumb{position:absolute;top:0;left:0;width:100%;height:100%;background-size:cover;background-position:center;background-repeat:no-repeat;z-index:5;transition:opacity 0.3s;}
-  .thumb.hide{opacity:0;pointer-events:none;}
-  
-  /* 오버레이 마스크 (상/하단) */
-  .mask-top {
-    position: absolute; top: 0; left: 0; width: 100%; height: 60px;
-    z-index: 52; pointer-events: auto;
-    display: flex; justify-content: center; align-items: center;
-  }
-  
-  .mask-bottom {
-    position: absolute; bottom: 0; left: 0; width: 100%; height: 50px;
-    z-index: 52; display: flex;
-  }
-  .mask-bottom .block-area {
-    flex: 1; pointer-events: auto;
-    display: flex; justify-content: center; align-items: center;
-  }
-  .mask-bottom .pass-area {
-    width: 130px; pointer-events: none; /* 광고 스킵 버튼 클릭 허용 */
-  }
-  
-  .overlay-content { color: rgba(255,255,255,0.8); font-size: 14px; font-weight: bold; pointer-events: none; }
-
-  /* Full Mode */
-  .full .player-wrap{position:absolute;top:0;left:50%;width:177.78vh;height:100%;transform:translateX(-50%);object-fit:cover;z-index:2;}
+  .full .player-wrap{position:absolute;top:0;left:50%;width:177.78vh;height:100%;transform:translateX(-50%);z-index:2;}
   @media(max-aspect-ratio:9/16){.full .player-wrap{width:320%;height:100%;left:-110%;transform:none;}}
-
-  /* Fit Mode */
-  .fit{display:flex;flex-direction:column;}
-  .fit .top-header{width:100%;padding:15px;color:#fff;text-align:center;z-index:10;font-weight:bold;min-height:50px;}
-  .fit .vid-wrap{position:relative;width:100%;flex:1;display:flex;align-items:center;justify-content:center;background:#000;}
-  .fit .thumb{position:absolute;top:0;left:0;width:100%;height:100%;}
-  .fit .player-wrap{position:absolute;top:0;left:0;width:100%;height:100%;z-index:2;}
-
-  /* Square Mode */
-  .square{display:flex;flex-direction:column;}
-  .square .top-header{width:100%;padding:15px;color:#fff;text-align:center;z-index:10;font-weight:bold;min-height:50px;}
-  .square .vid-wrap{
-    position:relative; width:100%; padding-top: 100%;
-    background:#000; overflow: hidden;
-  }
-  .square .player-wrap{
-    position:absolute; top:0; left:50%; transform: translateX(-50%);
-    width: 177.78%; height: 100%; z-index:2;
-  }
-  .square .thumb{
-    position:absolute; top:0; left:50%; transform:translateX(-50%);
-    width: 177.78%; height: 100%; background-size: cover; background-position: center;
-  }
-
-  .badge{position:absolute;top:20px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.6);color:#fff;padding:5px 15px;border-radius:15px;font-size:14px;z-index:20;pointer-events:none;}
-  .loading{position:fixed;top:10px;left:50%;transform:translateX(-50%);background:rgba(255,255,255,0.9);color:#333;padding:8px 16px;border-radius:20px;font-size:12px;z-index:999;display:none;}
-  .loading.show{display:block;}
+  .top-header{width:100%;padding:15px;color:#fff;text-align:center;z-index:10;font-weight:bold;min-height:50px;}
+  .vid-wrap{position:relative;width:100%;background:#000;overflow:hidden;}
+  .fit .vid-wrap{flex:1;}
+  .square .vid-wrap{padding-top:100%;}
+  .player-wrap{position:absolute;top:0;left:50%;transform:translateX(-50%);width:177.78%;height:100%;z-index:2;}
+  .mask-top{position:absolute;top:0;left:0;width:100%;height:60px;z-index:52;}
+  .mask-bottom{position:absolute;bottom:0;left:0;width:100%;height:50px;z-index:52;display:flex;}
+  .block-area{flex:1;pointer-events:auto;}
+  .pass-area{width:130px;pointer-events:none;}
+  .badge{position:absolute;top:20px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.6);color:#fff;padding:5px 15px;border-radius:15px;font-size:14px;z-index:20;}
 </style>
 </head>
 <body>
-<div class="loading" id="loading">로딩 중...</div>
 <div class="swiper"><div class="swiper-wrapper" id="wrap"></div></div>
 <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
 <script>
-const list=[{"id":"yx_cR1cWZn0","title":"","mode":"square","ranges":[{"s":10,"e":20},{"s":60,"e":70},{"s":80,"e":90},{"s":110,"e":120},{"s":140,"e":150}],"topText":"한옥문의 양산이야기\n서창동을 돌아봅니다.","sub":"","poster":"https://i.ytimg.com/vi/1sGHYtKBS3Y/oar2.jpg?sqp=-oaymwEkCJUDENAFSFqQAgHyq4qpAxMIARUAAAAAJQAAyEI9AICiQ3gB&rs=AOn4CLB4gdSNw1rEw0RXZXXanwQ1BV2VRQ"}];
-let swiper, players={}, subs={}, timer=null, playersReady=0;
-let userInteracted = false;
-let isTransitioning = false;
-let apiReady = false;
-let initAttempts = 0;
-let activeSegments = {}; 
-
-function log(msg){ console.log('[Player] ' + msg); }
-function showLoading(msg){ const el = document.getElementById('loading'); if(el){ el.textContent = msg || '로딩 중...'; el.classList.add('show'); } }
-function hideLoading(){ const el = document.getElementById('loading'); if(el) el.classList.remove('show'); }
-function getThumbUrl(videoId){ return 'https://img.youtube.com/vi/'+videoId+'/hqdefault.jpg'; }
-
+const list = [{"id":"yx_cR1cWZn0","title":"","mode":"square","ranges":[{"s":10,"e":20},{"s":60,"e":70},{"s":80,"e":90},{"s":110,"e":120},{"s":140,"e":150}],"topText":"한옥문의 양산이야기\n서창동을 돌아봅니다.","sub":"","poster":"https://i.ytimg.com/vi/1sGHYtKBS3Y/oar2.jpg?sqp=-oaymwEkCJUDENAFSFqQAgHyq4qpAxMIARUAAAAAJQAAyEI9AICiQ3gB&rs=AOn4CLB4gdSNw1rEw0RXZXXanwQ1BV2VRQ"}];
+let swiper, players={}, subs={}, timer=null, userInteracted=false, apiReady=false, activeSegments={};
+function getThumbUrl(vid){ return "https://img.youtube.com/vi/"+vid+"/hqdefault.jpg"; }
 function init(){
-  const w=document.getElementById('wrap');
-  if(!w) return;
-  
+  const w=document.getElementById("wrap");
   list.forEach((v,i)=>{
-    activeSegments[i] = 0; 
-    const d=document.createElement('div'); 
-    
-    let modeClass = 'full';
-    if(v.mode === 'fit') modeClass = 'fit';
-    if(v.mode === 'square') modeClass = 'square';
-    
-    d.className='swiper-slide ' + modeClass;
-    
+    activeSegments[i]=0;
+    const d=document.createElement("div");
+    d.className="swiper-slide " + v.mode;
     subs[i]=parseSrt(v.sub);
     const imgUrl = v.poster ? v.poster : getThumbUrl(v.id);
-    
     const thumb = '<div class="thumb" id="thumb-'+i+'" style="background-image:url(\''+imgUrl+'\')"></div>';
-    const smartLayer = '<div class="smart-layer" data-idx="'+i+'"></div>';
-    const playBtn = '<div class="play-btn" id="btn-'+i+'" data-idx="'+i+'"></div>';
-    const subBox = '<div class="sub-box" id="sub-'+i+'"></div>';
     const playerDiv = '<div class="player-wrap"><div id="p-'+i+'"></div></div>';
-    const maskTop = '<div class="mask-top"><span class="overlay-content"></span></div>';
-    const maskBottom = '<div class="mask-bottom"><div class="block-area"><span class="overlay-content"></span></div><div class="pass-area"></div></div>';
-    
-    if(v.mode === 'fit' || v.mode === 'square') {
-      const topHeader = v.topText ? '<div class="top-header">'+v.topText+'</div>' : '';
-      d.innerHTML = topHeader + 
-        '<div class="vid-wrap">' + 
-          thumb + playerDiv + maskTop + maskBottom + smartLayer + playBtn + subBox + 
-        '</div>';
-    } else {
-      d.innerHTML = thumb + playerDiv + smartLayer + playBtn + subBox + '<div class="badge">'+v.title+'</div>';
+    const controls = '<div class="mask-top"></div><div class="mask-bottom"><div class="block-area"></div><div class="pass-area"></div></div><div class="smart-layer" data-idx="'+i+'"></div><div class="play-btn" id="btn-'+i+'" data-idx="'+i+'"></div><div class="sub-box" id="sub-'+i+'"></div>';
+    if(v.mode==="fit"||v.mode==="square"){
+      d.innerHTML=(v.topText?'<div class="top-header">'+v.topText+'</div>':'')+'<div class="vid-wrap">'+thumb+playerDiv+controls+'</div>';
+    }else{
+      d.innerHTML=thumb+playerDiv+controls+'<div class="badge">'+v.title+'</div>';
     }
     w.appendChild(d);
   });
-
-  document.addEventListener('click', function(e){
-    const btn = e.target.closest('.play-btn');
-    const layer = e.target.closest('.smart-layer');
-    if(btn){ handlePlayClick(parseInt(btn.getAttribute('data-idx'))); }
-    else if(layer){ handleLayerClick(parseInt(layer.getAttribute('data-idx'))); }
+  document.addEventListener("click", e => {
+    const b=e.target.closest(".play-btn"), l=e.target.closest(".smart-layer");
+    if(b) handlePlayClick(parseInt(b.dataset.idx));
+    else if(l) handleLayerClick(parseInt(l.dataset.idx));
   });
-
-  swiper=new Swiper('.swiper',{
-    direction:'vertical', effect:'slide', speed:400, loop: false,
-    on:{ slideChange:function(){ if(!isTransitioning) handleSlideChange(); } }
-  });
-  
-  window.addEventListener('resize',function(){
-    document.querySelectorAll('.sub-box.show').forEach(function(el){ font(el,el.innerText.length); });
-  });
-  
+  swiper=new Swiper(".swiper",{ direction:"vertical", on:{ slideChange:()=>handleSlideChange() } });
   loadYouTubeAPI();
 }
-
 function loadYouTubeAPI(){
-  showLoading('YouTube API 로딩 중...');
-  if(window.YT && window.YT.Player){ apiReady = true; hideLoading(); createPlayers(); return; }
-  var tag = document.createElement('script');
-  tag.src = 'https://www.youtube.com/iframe_api';
-  tag.onerror = function(){ showLoading('YouTube API 로드 실패. 새로고침 해주세요.'); };
-  var firstScriptTag = document.getElementsByTagName('script')[0];
-  firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
-  setTimeout(function(){ if(!apiReady && initAttempts < 3){ initAttempts++; loadYouTubeAPI(); } }, 10000);
+  var tag=document.createElement("script"); tag.src="https://www.youtube.com/iframe_api";
+  document.body.appendChild(tag);
 }
-
-window.onYouTubeIframeAPIReady = function(){ apiReady = true; hideLoading(); createPlayers(); };
-
+window.onYouTubeIframeAPIReady=()=>{ apiReady=true; createPlayers(); };
 function createPlayers(){
-  if(!window.YT || !window.YT.Player) return;
-  list.forEach(function(v,i){
-    try {
-      const firstStart = (v.ranges && v.ranges[0]) ? v.ranges[0].s : 0;
-      players[i] = new YT.Player('p-'+i, {
-        videoId: v.id, host: 'https://www.youtube.com',
-        playerVars: { 
-          'autoplay': 0, 'controls': 0, 'rel': 0, 'showinfo': 0, 
-          'modestbranding': 1, 'playsinline': 1, 'fs': 0, 
-          'iv_load_policy': 3, 'start': firstStart, 'enablejsapi': 1, 
-          'origin': window.location.origin 
-        },
-        events: { 
-          'onReady': function(e){ onPlayerReady(e,i); }, 
-          'onStateChange': function(e){ onStateChange(e,i); }, 
-          'onError': function(e){ onPlayerError(e,i); } 
-        }
-      });
-    } catch(err) {}
+  list.forEach((v,i)=>{
+    players[i]=new YT.Player("p-"+i, {
+      videoId:v.id, playerVars:{"controls":0,"modestbranding":1,"playsinline":1,"rel":0,"enablejsapi":1},
+      events:{"onStateChange":e=>onStateChange(e,i)}
+    });
   });
 }
-
-function onPlayerReady(e,i){
-  playersReady++;
-  if(playersReady === list.length) hideLoading();
-}
-
-function onPlayerError(e, i) { if(userInteracted) setTimeout(function(){ next(); }, 1000); }
-
 function onStateChange(e,i){
-  var currentIdx = swiper ? swiper.activeIndex : 0;
-  if(i !== currentIdx) return;
-  var btn = document.getElementById('btn-'+i);
-  
-  if(e.data === YT.PlayerState.PLAYING){
-    if(btn) btn.classList.add('hide');
-    hideThumb(i); startMon(i); 
-  } else if(e.data === YT.PlayerState.PAUSED){
-    if(btn) btn.classList.remove('hide');
-  } else if(e.data === YT.PlayerState.ENDED){
-    if(btn) btn.classList.remove('hide');
-    if(timer) clearInterval(timer);
-    if(userInteracted) setTimeout(function(){ next(); }, 300);
-  }
+  const b=document.getElementById("btn-"+i), t=document.getElementById("thumb-"+i);
+  if(e.data===1){ b.classList.add("hide"); t.classList.add("hide"); startMon(i); }
+  else if(e.data===2||e.data===0){ b.classList.remove("hide"); if(e.data===0 && userInteracted) next(); }
 }
-
-function handleSlideChange(){
-  stopAll();
-  var idx = swiper.activeIndex;
-  activeSegments[idx] = 0;
-  if(userInteracted) setTimeout(function(){ play(idx); }, 300);
-}
-
-function handlePlayClick(i){
-  if(!apiReady) return;
-  userInteracted = true;
-  var p = players[i];
-  if(p && typeof p.getPlayerState === 'function' && p.getPlayerState() === YT.PlayerState.PAUSED){
-    p.playVideo();
-  } else {
-    activeSegments[i] = 0;
-    play(i);
-  }
-}
-
-function handleLayerClick(i){
-  if(!apiReady) return;
-  if(!userInteracted){ userInteracted = true; play(i); return; }
-  toggle(i);
-}
-
-function hideThumb(i){ var thumb = document.getElementById('thumb-'+i); if(thumb) thumb.classList.add('hide'); }
-function showThumb(i){ var thumb = document.getElementById('thumb-'+i); if(thumb) thumb.classList.remove('hide'); }
-
-function toggle(i){
-  var p = players[i];
-  if(p && typeof p.getPlayerState === 'function'){ 
-    var state = p.getPlayerState();
-    (state === YT.PlayerState.PLAYING) ? p.pauseVideo() : p.playVideo();
-  }
-}
-
+function handleSlideChange(){ stopAll(); if(userInteracted) setTimeout(()=>play(swiper.activeIndex),300); }
+function handlePlayClick(i){ userInteracted=true; play(i); }
+function handleLayerClick(i){ if(!userInteracted){userInteracted=true; play(i); return;} toggle(i); }
+function toggle(i){ const p=players[i]; (p.getPlayerState()===1)?p.pauseVideo():p.playVideo(); }
 function play(i){
-  var p = players[i];
-  if(!p) return;
-  if(typeof p.playVideo !== 'function'){ setTimeout(function(){ play(i); }, 500); return; }
-  
-  var segIdx = activeSegments[i] || 0;
-  var startTime = 0;
-  if(list[i].ranges && list[i].ranges[segIdx]) {
-    startTime = list[i].ranges[segIdx].s;
-  }
-  
-  try {
-    p.seekTo(startTime, true);
-    setTimeout(function(){ p.playVideo(); }, 200);
-  } catch(e) {}
+  const p=players[i], s=list[i].ranges[activeSegments[i]||0].s;
+  p.seekTo(s,true); p.playVideo();
 }
-
 function stopAll(){
-  if(timer) { clearInterval(timer); timer = null; }
-  document.querySelectorAll('.sub-box').forEach(function(el){ el.classList.remove('show'); el.innerHTML=''; });
-  Object.keys(players).forEach(function(idx){ 
-    var p = players[idx];
-    if(p && typeof p.pauseVideo === 'function') { try { p.pauseVideo(); } catch(e) {} }
-    showThumb(parseInt(idx));
-  });
+  if(timer) clearInterval(timer);
+  Object.values(players).forEach(p=>{ try{p.pauseVideo();}catch(e){} });
+  document.querySelectorAll(".thumb").forEach(t=>t.classList.remove("hide"));
 }
-
-function next(){
-  if(isTransitioning) return;
-  isTransitioning = true;
-  var idx = swiper.activeIndex;
-  if(idx < list.length - 1){
-    swiper.slideNext();
-    setTimeout(function(){ isTransitioning = false; }, 500);
-  } else {
-    stopAll(); 
-    swiper.slideTo(0, 400);
-    activeSegments[0] = 0;
-    setTimeout(function(){ isTransitioning = false; if(userInteracted) play(0); }, 600);
-  }
-}
-
+function next(){ (swiper.activeIndex<list.length-1)?swiper.slideNext():swiper.slideTo(0); }
 function startMon(i){
   if(timer) clearInterval(timer);
-  var p = players[i];
-  var el = document.getElementById('sub-'+i);
-  var sDat = subs[i];
-  timer = setInterval(function(){
-    if(!p || typeof p.getCurrentTime !== 'function') return;
-    var t; try { t = p.getCurrentTime(); } catch(e) { return; }
-    
-    var segIdx = activeSegments[i] || 0;
-    var ranges = list[i].ranges;
-    if(!ranges || ranges.length === 0) return;
-    
-    var currentEnd = ranges[segIdx].e;
-    var currentStart = ranges[segIdx].s;
-
-    if(currentEnd > currentStart && t >= (currentEnd - 0.3)){
-       if(segIdx < ranges.length - 1) {
-         activeSegments[i] = segIdx + 1;
-         var nextStart = ranges[segIdx + 1].s;
-         p.seekTo(nextStart, true);
-       } else {
-         clearInterval(timer); timer = null;
-         try { p.pauseVideo(); } catch(e) {}
-         setTimeout(function(){ next(); }, 200);
-         return;
-       }
+  timer=setInterval(()=>{
+    const p=players[i], t=p.getCurrentTime(), r=list[i].ranges[activeSegments[i]||0];
+    if(r.e>0 && t>=r.e-0.3){
+      if(activeSegments[i]<list[i].ranges.length-1){ activeSegments[i]++; play(i); }
+      else { next(); }
     }
-    
-    if(sDat && sDat.length && el){
-      var row = null;
-      for(var j=0; j<sDat.length; j++){
-        if(t >= sDat[j].s && t <= sDat[j].e){ row = sDat[j]; break; }
-      }
-      if(row){
-        var txt = row.t.replace(/\n/g,'<br>');
-        if(el.innerHTML !== txt){ el.innerHTML = txt; el.classList.add('show'); font(el, row.t.length); }
-      } else { el.classList.remove('show'); el.innerHTML = ''; }
-    }
-  }, 100);
+  },100);
 }
-
-function font(el,len){
-  var w = document.querySelector('.swiper');
-  w = w ? w.clientWidth : window.innerWidth;
-  var r = 0.045; 
-  if(len<=5) r=0.08; else if(len<=15) r=0.06; else if(len<=30) r=0.05; else r=0.04;
-  el.style.fontSize = (w*r)+'px';
-}
-
-// 클라이언트 사이드용 헬퍼
-function parseSrt(t){
-  if(!t || t.indexOf('-->') === -1) return t ? [{s:0,e:9999,t:t}] : [];
-  var r=[], regex = /(\d+)\n(\d{2}:\d{2}:\d{2},\d{3}) --> (\d{2}:\d{2}:\d{2},\d{3})\n([\s\S]*?)(?=\n\n|\n$|$)/g;
-  var m, text = t + '\n\n';
-  while((m = regex.exec(text)) !== null){ r.push({s:h2s(m[2]), e:h2s(m[3]), t:m[4].trim()}); }
-  return r;
-}
-function h2s(s){ 
-  var p = s.split(':'), c = p[2].split(','); 
-  return parseInt(p[0])*3600 + parseInt(p[1])*60 + parseInt(c[0]) + parseInt(c[1])/1000;
-}
-
-if(document.readyState === 'loading'){ document.addEventListener('DOMContentLoaded', init); } else { init(); }
+function parseSrt(t){ if(!t||!t.includes("-->")) return t?[{s:0,e:9999,t:t}]:[]; return []; }
+init();
 </script>
 </body>
 </html>

@@ -37,8 +37,8 @@
 <div class="swiper"><div class="swiper-wrapper" id="wrap"></div></div>
 <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
 <script>
-const list = [{"id":"yx_cR1cWZn0","title":"","mode":"square","ranges":[{"s":10,"e":20},{"s":60,"e":70},{"s":80,"e":90},{"s":110,"e":120},{"s":140,"e":150}],"topText":"한옥문의 양산이야기\n서창동을 돌아봅니다.","sub":"","poster":"https://i.ytimg.com/vi/1sGHYtKBS3Y/oar2.jpg?sqp=-oaymwEkCJUDENAFSFqQAgHyq4qpAxMIARUAAAAAJQAAyEI9AICiQ3gB&rs=AOn4CLB4gdSNw1rEw0RXZXXanwQ1BV2VRQ"}];
-let swiper, players={}, subs={}, timer=null, userInteracted=false, apiReady=false, activeSegments={};
+const list = [{"id":"yx_cR1cWZn0","title":"","mode":"square","ranges":[{"s":10,"e":15},{"s":60,"e":65},{"s":80,"e":85},{"s":110,"e":115},{"s":140,"e":145}],"topText":"한옥문의 양산이야기\n서창동을 돌아봅니다.","sub":"","poster":"https://i.ytimg.com/vi/1sGHYtKBS3Y/oar2.jpg?sqp=-oaymwEkCJUDENAFSFqQAgHyq4qpAxMIARUAAAAAJQAAyEI9AICiQ3gB&rs=AOn4CLB4gdSNw1rEw0RXZXXanwQ1BV2VRQ"}];
+let swiper, players={}, subs={}, timer=null, userInteracted=false, apiReady=false, activeSegments={}, isTransitioning=false;
 function getThumbUrl(vid){ return "https://img.youtube.com/vi/"+vid+"/hqdefault.jpg"; }
 function init(){
   const w=document.getElementById("wrap");
@@ -80,31 +80,62 @@ function createPlayers(){
   });
 }
 function onStateChange(e,i){
+  if(isTransitioning) return;
   const b=document.getElementById("btn-"+i), t=document.getElementById("thumb-"+i);
   if(e.data===1){ b.classList.add("hide"); t.classList.add("hide"); startMon(i); }
-  else if(e.data===2||e.data===0){ b.classList.remove("hide"); if(e.data===0 && userInteracted) next(); }
+  else if(e.data===2){ b.classList.remove("hide"); stopMon(); }
+  else if(e.data===0 && userInteracted){ goNext(); }
 }
-function handleSlideChange(){ stopAll(); if(userInteracted) setTimeout(()=>play(swiper.activeIndex),300); }
+function handleSlideChange(){
+  stopAll();
+  resetSegment(swiper.activeIndex);
+  if(userInteracted) setTimeout(()=>play(swiper.activeIndex),300);
+}
 function handlePlayClick(i){ userInteracted=true; play(i); }
 function handleLayerClick(i){ if(!userInteracted){userInteracted=true; play(i); return;} toggle(i); }
-function toggle(i){ const p=players[i]; (p.getPlayerState()===1)?p.pauseVideo():p.playVideo(); }
+function toggle(i){ const p=players[i]; if(p.getPlayerState()===1) p.pauseVideo(); else p.playVideo(); }
 function play(i){
-  const p=players[i], s=list[i].ranges[activeSegments[i]||0].s;
+  const p=players[i], seg=activeSegments[i]||0, s=list[i].ranges[seg].s;
   p.seekTo(s,true); p.playVideo();
 }
+function stopMon(){ if(timer){ clearInterval(timer); timer=null; } }
 function stopAll(){
-  if(timer) clearInterval(timer);
+  stopMon();
   Object.values(players).forEach(p=>{ try{p.pauseVideo();}catch(e){} });
   document.querySelectorAll(".thumb").forEach(t=>t.classList.remove("hide"));
+  document.querySelectorAll(".play-btn").forEach(b=>b.classList.remove("hide"));
 }
-function next(){ (swiper.activeIndex<list.length-1)?swiper.slideNext():swiper.slideTo(0); }
+function resetSegment(i){ activeSegments[i]=0; }
+function resetAllSegments(){ list.forEach((v,i)=>{ activeSegments[i]=0; }); }
+function goNext(){
+  isTransitioning=true;
+  stopAll();
+  const curr=swiper.activeIndex;
+  if(curr<list.length-1){
+    swiper.slideNext();
+  }else{
+    resetAllSegments();
+    swiper.slideTo(0);
+  }
+  setTimeout(()=>{ isTransitioning=false; },500);
+}
 function startMon(i){
-  if(timer) clearInterval(timer);
+  stopMon();
   timer=setInterval(()=>{
-    const p=players[i], t=p.getCurrentTime(), r=list[i].ranges[activeSegments[i]||0];
-    if(r.e>0 && t>=r.e-0.3){
-      if(activeSegments[i]<list[i].ranges.length-1){ activeSegments[i]++; play(i); }
-      else { next(); }
+    if(isTransitioning) return;
+    const p=players[i];
+    if(!p || typeof p.getCurrentTime !== "function") return;
+    const currTime=p.getCurrentTime();
+    const seg=activeSegments[i]||0;
+    const r=list[i].ranges[seg];
+    if(r.e>0 && currTime>=r.e-0.2){
+      if(seg<list[i].ranges.length-1){
+        activeSegments[i]=seg+1;
+        p.seekTo(list[i].ranges[seg+1].s, true);
+      }else{
+        p.pauseVideo();
+        goNext();
+      }
     }
   },100);
 }

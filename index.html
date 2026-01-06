@@ -16,7 +16,7 @@
   .thumb.hide{opacity:0;pointer-events:none;}
   .smart-layer{position:absolute;top:0;left:0;width:100%;height:100%;z-index:50;background:transparent;cursor:pointer;clip-path:polygon(0% 0%, 100% 0%, 100% 80%, 65% 80%, 65% 100%, 0% 100%);}
   .play-btn{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:70px;height:70px;z-index:55;background:rgba(0,0,0,0.6);border-radius:50%;display:flex;justify-content:center;align-items:center;}
-  .play-btn::after{content:'';width:0;height:0;border-left:25px solid #fff;border-top:15px solid transparent;border-bottom:15px solid transparent;margin-left:5px;}
+  .play-btn::after{content:"";width:0;height:0;border-left:25px solid #fff;border-top:15px solid transparent;border-bottom:15px solid transparent;margin-left:5px;}
   .play-btn.hide{opacity:0;pointer-events:none;}
   .sub-box{position:absolute;left:50%;transform:translateX(-50%);bottom:10%;max-width:90%;text-align:center;color:#fff;z-index:60;pointer-events:none;text-shadow:1px 1px 2px #000;background:rgba(0,0,0,0.5);padding:8px 16px;border-radius:8px;opacity:0;transition:all 0.1s;}
   .sub-box.show{opacity:1;}
@@ -45,40 +45,43 @@
 <div class="swiper"><div class="swiper-wrapper" id="wrap"></div></div>
 <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
 <script>
-const list = [{"id":"gQNWnZ4LWqI","title":"","mode":"square","ranges":[{"s":0,"e":0}],"topText":"한옥문의 양산이야기\n서창동을 돌아봅니다.","sub":"","poster":"https://i.ytimg.com/vi/1sGHYtKBS3Y/oar2.jpg?sqp=-oaymwEkCJUDENAFSFqQAgHyq4qpAxMIARUAAAAAJQAAyEI9AICiQ3gB&rs=AOn4CLB4gdSNw1rEw0RXZXXanwQ1BV2VRQ"}];
-const modeIcons = {
-  fit: '<svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="1" fill="none" stroke="#fff" stroke-width="2"/></svg>',
-  square: '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="1" fill="none" stroke="#fff" stroke-width="2"/></svg>',
-  full: '<svg viewBox="0 0 24 24"><path d="M3 3h7v2H5v5H3V3zm11 0h7v7h-2V5h-5V3zM5 14v5h5v2H3v-7h2zm14 0v5h-5v2h7v-7h-2z"/></svg>'
-};
-let swiper, players={}, subs={}, timer=null, userInteracted=false, apiReady=false, activeSegments={}, currentModes={};
+var list = [{"id":"aGXqn3DBL7w","title":"","mode":"square","ranges":[{"s":0,"e":0}],"topText":"한옥문의 양산이야기\n서창동을 돌아봅니다.","sub":"","poster":"https://i.ytimg.com/vi/1sGHYtKBS3Y/oar2.jpg?sqp=-oaymwEkCJUDENAFSFqQAgHyq4qpAxMIARUAAAAAJQAAyEI9AICiQ3gB&rs=AOn4CLB4gdSNw1rEw0RXZXXanwQ1BV2VRQ"}];
+var iconFit = '<svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="1" fill="none" stroke="#fff" stroke-width="2"/></svg>';
+var iconSquare = '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="1" fill="none" stroke="#fff" stroke-width="2"/></svg>';
+var iconFull = '<svg viewBox="0 0 24 24"><path d="M3 3h7v2H5v5H3V3zm11 0h7v7h-2V5h-5V3zM5 14v5h5v2H3v-7h2zm14 0v5h-5v2h7v-7h-2z"/></svg>';
+var swiper, players={}, subs={}, timer=null, userInteracted=false, apiReady=false, activeSegments={}, currentModes={};
 function getThumbUrl(vid){ return "https://img.youtube.com/vi/"+vid+"/hqdefault.jpg"; }
+function createModeBtns(i, mode){
+  var h = '<div class="mode-btns">';
+  h += '<div class="mode-btn'+(mode==="fit"?" active":"")+'" data-idx="'+i+'" data-mode="fit">'+iconFit+'</div>';
+  h += '<div class="mode-btn'+(mode==="square"?" active":"")+'" data-idx="'+i+'" data-mode="square">'+iconSquare+'</div>';
+  h += '<div class="mode-btn'+(mode==="full"?" active":"")+'" data-idx="'+i+'" data-mode="full">'+iconFull+'</div>';
+  h += '</div>';
+  return h;
+}
 function init(){
-  const w=document.getElementById("wrap");
-  list.forEach((v,i)=>{
+  var w=document.getElementById("wrap");
+  for(var i=0; i<list.length; i++){
+    var v = list[i];
     activeSegments[i]=0;
     currentModes[i]=v.mode;
-    const d=document.createElement("div");
+    var d=document.createElement("div");
     d.className="swiper-slide " + v.mode;
     d.id="slide-"+i;
     subs[i]=parseSrt(v.sub);
-    const imgUrl = v.poster ? v.poster : getThumbUrl(v.id);
-    const thumb = '<div class="thumb" id="thumb-'+i+'"><img src="'+imgUrl+'" alt=""></div>';
-    const playerDiv = '<div class="player-wrap"><div id="p-'+i+'"></div></div>';
-    const masks = '<div class="mask-top"></div><div class="mask-bottom"><div class="block-area"></div><div class="pass-area"></div></div>';
-    const controls = '<div class="smart-layer" data-idx="'+i+'"></div><div class="play-btn" id="btn-'+i+'" data-idx="'+i+'"></div><div class="sub-box" id="sub-'+i+'"></div>';
-    const modeBtns = '<div class="mode-btns">';
-    modeBtns += '<div class="mode-btn'+(v.mode==="fit"?" active":"")+'" data-idx="'+i+'" data-mode="fit" title="16:9">'+modeIcons.fit+'</div>';
-    modeBtns += '<div class="mode-btn'+(v.mode==="square"?" active":"")+'" data-idx="'+i+'" data-mode="square" title="정사각형">'+modeIcons.square+'</div>';
-    modeBtns += '<div class="mode-btn'+(v.mode==="full"?" active":"")+'" data-idx="'+i+'" data-mode="full" title="전체화면">'+modeIcons.full+'</div>';
-    modeBtns += '</div>';
-    const header = v.topText ? '<div class="top-header" id="header-'+i+'">'+v.topText+'</div>' : '';
-    const badge = '<div class="badge">'+v.title+'</div>';
+    var imgUrl = v.poster ? v.poster : getThumbUrl(v.id);
+    var thumb = '<div class="thumb" id="thumb-'+i+'"><img src="'+imgUrl+'" alt=""></div>';
+    var playerDiv = '<div class="player-wrap"><div id="p-'+i+'"></div></div>';
+    var masks = '<div class="mask-top"></div><div class="mask-bottom"><div class="block-area"></div><div class="pass-area"></div></div>';
+    var controls = '<div class="smart-layer" data-idx="'+i+'"></div><div class="play-btn" id="btn-'+i+'" data-idx="'+i+'"></div><div class="sub-box" id="sub-'+i+'"></div>';
+    var modeBtns = createModeBtns(i, v.mode);
+    var header = v.topText ? '<div class="top-header" id="header-'+i+'">'+v.topText+'</div>' : '';
+    var badge = '<div class="badge">'+v.title+'</div>';
     d.innerHTML = thumb + header + '<div class="vid-wrap">' + playerDiv + masks + '</div>' + controls + modeBtns + badge;
     w.appendChild(d);
-  });
-  document.addEventListener("click", e => {
-    const b=e.target.closest(".play-btn"), l=e.target.closest(".smart-layer"), m=e.target.closest(".mode-btn");
+  }
+  document.addEventListener("click", function(e){
+    var b=e.target.closest(".play-btn"), l=e.target.closest(".smart-layer"), m=e.target.closest(".mode-btn");
     if(m){ setMode(parseInt(m.dataset.idx), m.dataset.mode); return; }
     if(b) handlePlayClick(parseInt(b.dataset.idx));
     else if(l) handleLayerClick(parseInt(l.dataset.idx));
@@ -88,79 +91,81 @@ function init(){
 }
 function setMode(i, mode){
   if(currentModes[i] === mode) return;
-  const slide = document.getElementById("slide-"+i);
+  var slide = document.getElementById("slide-"+i);
   slide.classList.remove("full", "fit", "square");
   slide.classList.add(mode);
   currentModes[i] = mode;
-  const btns = slide.querySelectorAll(".mode-btn");
-  btns.forEach(btn => {
-    if(btn.dataset.mode === mode) btn.classList.add("active");
-    else btn.classList.remove("active");
-  });
+  var btns = slide.querySelectorAll(".mode-btn");
+  for(var j=0; j<btns.length; j++){
+    if(btns[j].dataset.mode === mode) btns[j].classList.add("active");
+    else btns[j].classList.remove("active");
+  }
 }
 function loadYouTubeAPI(){
   var tag=document.createElement("script"); tag.src="https://www.youtube.com/iframe_api";
   document.body.appendChild(tag);
 }
-window.onYouTubeIframeAPIReady=()=>{ apiReady=true; createPlayers(); };
+window.onYouTubeIframeAPIReady=function(){ apiReady=true; createPlayers(); };
 function createPlayers(){
-  list.forEach((v,i)=>{
-    players[i]=new YT.Player("p-"+i, {
-      videoId:v.id, playerVars:{"controls":0,"modestbranding":1,"playsinline":1,"rel":0,"enablejsapi":1},
-      events:{"onStateChange":e=>onStateChange(e,i)}
-    });
-  });
+  for(var i=0; i<list.length; i++){
+    (function(idx){
+      players[idx]=new YT.Player("p-"+idx, {
+        videoId:list[idx].id, playerVars:{"controls":0,"modestbranding":1,"playsinline":1,"rel":0,"enablejsapi":1},
+        events:{"onStateChange":function(e){ onStateChange(e,idx); }}
+      });
+    })(i);
+  }
 }
 function onStateChange(e,i){
-  const b=document.getElementById("btn-"+i), t=document.getElementById("thumb-"+i);
+  var b=document.getElementById("btn-"+i), t=document.getElementById("thumb-"+i);
   if(e.data===1){ b.classList.add("hide"); t.classList.add("hide"); startMon(i); }
   else if(e.data===2){ b.classList.remove("hide"); stopMon(); }
 }
 function onSlideChange(){
   stopAll();
-  const idx=swiper.activeIndex;
+  var idx=swiper.activeIndex;
   activeSegments[idx]=0;
-  if(userInteracted) setTimeout(()=>playVideo(idx),300);
+  if(userInteracted) setTimeout(function(){ playVideo(idx); },300);
 }
 function handlePlayClick(i){ userInteracted=true; playVideo(i); }
 function handleLayerClick(i){ if(!userInteracted){userInteracted=true; playVideo(i); return;} toggle(i); }
-function toggle(i){ const p=players[i]; if(p.getPlayerState()===1) p.pauseVideo(); else p.playVideo(); }
+function toggle(i){ var p=players[i]; if(p.getPlayerState()===1) p.pauseVideo(); else p.playVideo(); }
 function playVideo(i){
-  const p=players[i], seg=activeSegments[i]||0, s=list[i].ranges[seg].s;
+  var p=players[i], seg=activeSegments[i]||0, s=list[i].ranges[seg].s;
   p.seekTo(s,true); p.playVideo();
 }
 function stopMon(){ if(timer){ clearInterval(timer); timer=null; } }
 function stopAll(){
   stopMon();
-  Object.values(players).forEach(p=>{ try{p.pauseVideo();}catch(e){} });
-  document.querySelectorAll(".thumb").forEach(t=>t.classList.remove("hide"));
-  document.querySelectorAll(".play-btn").forEach(b=>b.classList.remove("hide"));
+  for(var k in players){ try{players[k].pauseVideo();}catch(e){} }
+  var thumbs=document.querySelectorAll(".thumb"); for(var i=0;i<thumbs.length;i++) thumbs[i].classList.remove("hide");
+  var btns=document.querySelectorAll(".play-btn"); for(var i=0;i<btns.length;i++) btns[i].classList.remove("hide");
 }
 function goNext(){
   stopMon();
-  const curr=swiper.activeIndex;
-  const p=players[curr];
+  var curr=swiper.activeIndex;
+  var p=players[curr];
   try{ p.pauseVideo(); }catch(e){}
   if(curr < list.length-1){
     swiper.slideNext();
   }else{
-    list.forEach((v,i)=>{ activeSegments[i]=0; });
+    for(var i=0;i<list.length;i++){ activeSegments[i]=0; }
     swiper.slideTo(0, 300);
-    setTimeout(()=>{
-      document.querySelectorAll(".thumb").forEach(t=>t.classList.remove("hide"));
-      document.querySelectorAll(".play-btn").forEach(b=>b.classList.remove("hide"));
+    setTimeout(function(){
+      var thumbs=document.querySelectorAll(".thumb"); for(var i=0;i<thumbs.length;i++) thumbs[i].classList.remove("hide");
+      var btns=document.querySelectorAll(".play-btn"); for(var i=0;i<btns.length;i++) btns[i].classList.remove("hide");
       if(userInteracted) playVideo(0);
     }, 400);
   }
 }
 function startMon(i){
   stopMon();
-  timer=setInterval(()=>{
-    const p=players[i];
+  timer=setInterval(function(){
+    var p=players[i];
     if(!p || typeof p.getCurrentTime !== "function") return;
-    const currTime=p.getCurrentTime();
-    const seg=activeSegments[i]||0;
-    const r=list[i].ranges[seg];
+    var currTime=p.getCurrentTime();
+    var seg=activeSegments[i]||0;
+    var r=list[i].ranges[seg];
     if(r.e>0 && currTime>=r.e-0.2){
       if(seg<list[i].ranges.length-1){
         activeSegments[i]=seg+1;
@@ -171,7 +176,7 @@ function startMon(i){
     }
   },100);
 }
-function parseSrt(t){ if(!t||!t.includes("-->")) return t?[{s:0,e:9999,t:t}]:[]; return []; }
+function parseSrt(t){ if(!t||t.indexOf("-->")<0) return t?[{s:0,e:9999,t:t}]:[]; return []; }
 init();
 </script>
 </body>

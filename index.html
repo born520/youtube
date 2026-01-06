@@ -38,7 +38,7 @@
 <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
 <script>
 const list = [{"id":"yx_cR1cWZn0","title":"","mode":"square","ranges":[{"s":10,"e":15},{"s":60,"e":65},{"s":80,"e":85},{"s":110,"e":115},{"s":140,"e":145}],"topText":"한옥문의 양산이야기\n서창동을 돌아봅니다.","sub":"","poster":"https://i.ytimg.com/vi/1sGHYtKBS3Y/oar2.jpg?sqp=-oaymwEkCJUDENAFSFqQAgHyq4qpAxMIARUAAAAAJQAAyEI9AICiQ3gB&rs=AOn4CLB4gdSNw1rEw0RXZXXanwQ1BV2VRQ"}];
-let swiper, players={}, subs={}, timer=null, userInteracted=false, apiReady=false, activeSegments={}, isTransitioning=false;
+let swiper, players={}, subs={}, timer=null, userInteracted=false, apiReady=false, activeSegments={};
 function getThumbUrl(vid){ return "https://img.youtube.com/vi/"+vid+"/hqdefault.jpg"; }
 function init(){
   const w=document.getElementById("wrap");
@@ -63,7 +63,7 @@ function init(){
     if(b) handlePlayClick(parseInt(b.dataset.idx));
     else if(l) handleLayerClick(parseInt(l.dataset.idx));
   });
-  swiper=new Swiper(".swiper",{ direction:"vertical", on:{ slideChange:()=>handleSlideChange() } });
+  swiper=new Swiper(".swiper",{ direction:"vertical", loop:false, on:{ slideChange:onSlideChange } });
   loadYouTubeAPI();
 }
 function loadYouTubeAPI(){
@@ -80,21 +80,20 @@ function createPlayers(){
   });
 }
 function onStateChange(e,i){
-  if(isTransitioning) return;
   const b=document.getElementById("btn-"+i), t=document.getElementById("thumb-"+i);
   if(e.data===1){ b.classList.add("hide"); t.classList.add("hide"); startMon(i); }
   else if(e.data===2){ b.classList.remove("hide"); stopMon(); }
-  else if(e.data===0 && userInteracted){ goNext(); }
 }
-function handleSlideChange(){
+function onSlideChange(){
   stopAll();
-  resetSegment(swiper.activeIndex);
-  if(userInteracted) setTimeout(()=>play(swiper.activeIndex),300);
+  const idx=swiper.activeIndex;
+  activeSegments[idx]=0;
+  if(userInteracted) setTimeout(()=>playVideo(idx),300);
 }
-function handlePlayClick(i){ userInteracted=true; play(i); }
-function handleLayerClick(i){ if(!userInteracted){userInteracted=true; play(i); return;} toggle(i); }
+function handlePlayClick(i){ userInteracted=true; playVideo(i); }
+function handleLayerClick(i){ if(!userInteracted){userInteracted=true; playVideo(i); return;} toggle(i); }
 function toggle(i){ const p=players[i]; if(p.getPlayerState()===1) p.pauseVideo(); else p.playVideo(); }
-function play(i){
+function playVideo(i){
   const p=players[i], seg=activeSegments[i]||0, s=list[i].ranges[seg].s;
   p.seekTo(s,true); p.playVideo();
 }
@@ -105,24 +104,26 @@ function stopAll(){
   document.querySelectorAll(".thumb").forEach(t=>t.classList.remove("hide"));
   document.querySelectorAll(".play-btn").forEach(b=>b.classList.remove("hide"));
 }
-function resetSegment(i){ activeSegments[i]=0; }
-function resetAllSegments(){ list.forEach((v,i)=>{ activeSegments[i]=0; }); }
 function goNext(){
-  isTransitioning=true;
-  stopAll();
+  stopMon();
   const curr=swiper.activeIndex;
-  if(curr<list.length-1){
+  const p=players[curr];
+  try{ p.pauseVideo(); }catch(e){}
+  if(curr < list.length-1){
     swiper.slideNext();
   }else{
-    resetAllSegments();
-    swiper.slideTo(0);
+    list.forEach((v,i)=>{ activeSegments[i]=0; });
+    swiper.slideTo(0, 300);
+    setTimeout(()=>{
+      document.querySelectorAll(".thumb").forEach(t=>t.classList.remove("hide"));
+      document.querySelectorAll(".play-btn").forEach(b=>b.classList.remove("hide"));
+      if(userInteracted) playVideo(0);
+    }, 400);
   }
-  setTimeout(()=>{ isTransitioning=false; },500);
 }
 function startMon(i){
   stopMon();
   timer=setInterval(()=>{
-    if(isTransitioning) return;
     const p=players[i];
     if(!p || typeof p.getCurrentTime !== "function") return;
     const currTime=p.getCurrentTime();
@@ -133,7 +134,6 @@ function startMon(i){
         activeSegments[i]=seg+1;
         p.seekTo(list[i].ranges[seg+1].s, true);
       }else{
-        p.pauseVideo();
         goNext();
       }
     }

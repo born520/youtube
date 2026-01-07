@@ -49,7 +49,7 @@ var list = [{"id":"A8q6K4sDOVo","title":"","mode":"full","ranges":[{"s":0,"e":0}
 var iconFit = '<svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="1" fill="none" stroke="#fff" stroke-width="2"/></svg>';
 var iconSquare = '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="1" fill="none" stroke="#fff" stroke-width="2"/></svg>';
 var iconFull = '<svg viewBox="0 0 24 24"><path d="M3 3h7v2H5v5H3V3zm11 0h7v7h-2V5h-5V3zM5 14v5h5v2H3v-7h2zm14 0v5h-5v2h7v-7h-2z"/></svg>';
-var swiper, players={}, subs={}, timer=null, userInteracted=false, apiReady=false, activeSegments={}, currentModes={}, isPaused={};
+var swiper, players={}, subs={}, timer=null, userInteracted=false, apiReady=false, activeSegments={}, currentModes={}, isPaused={}, lastTimes={};
 function getThumbUrl(vid){ return "https://img.youtube.com/vi/"+vid+"/hqdefault.jpg"; }
 function createModeBtns(i, mode){
   var h = '<div class="mode-btns">';
@@ -63,12 +63,9 @@ function init(){
   var w=document.getElementById("wrap");
   for(var i=0; i<list.length; i++){
     var v = list[i];
-    activeSegments[i]=0;
-    currentModes[i]=v.mode;
-    isPaused[i]=false;
+    activeSegments[i]=0; currentModes[i]=v.mode; isPaused[i]=false; lastTimes[i]=0;
     var d=document.createElement("div");
-    d.className="swiper-slide " + v.mode;
-    d.id="slide-"+i;
+    d.className="swiper-slide " + v.mode; d.id="slide-"+i;
     subs[i]=parseSrt(v.sub);
     var imgUrl = v.poster ? v.poster : getThumbUrl(v.id);
     var thumb = '<div class="thumb" id="thumb-'+i+'"><img src="'+imgUrl+'" alt=""></div>';
@@ -87,14 +84,13 @@ function init(){
     if(b) handlePlayClick(parseInt(b.dataset.idx));
     else if(l) handleLayerClick(parseInt(l.dataset.idx));
   });
-  swiper=new Swiper(".swiper",{ direction:"vertical", loop:false, on:{ slideChange:onSlideChange } });
+  swiper=new Swiper(".swiper",{ direction:"vertical", loop:false, on:{ slideChangeTransitionStart:onSlideChangeStart, slideChangeTransitionEnd:onSlideChangeEnd } });
   loadYouTubeAPI();
 }
 function setMode(i, mode){
   if(currentModes[i] === mode) return;
   var slide = document.getElementById("slide-"+i);
-  slide.classList.remove("full", "fit", "square");
-  slide.classList.add(mode);
+  slide.classList.remove("full", "fit", "square"); slide.classList.add(mode);
   currentModes[i] = mode;
   var btns = slide.querySelectorAll(".mode-btn");
   for(var j=0; j<btns.length; j++){
@@ -122,47 +118,63 @@ function onStateChange(e,i){
   if(e.data===1){ b.classList.add("hide"); t.classList.add("hide"); startMon(i); }
   else if(e.data===2){ b.classList.remove("hide"); stopMon(); isPaused[i]=true; }
 }
-function onSlideChange(){
-  stopAll();
-  var idx=swiper.activeIndex;
-  activeSegments[idx]=0;
-  isPaused[idx]=false;
-  if(userInteracted) setTimeout(function(){ playVideo(idx, true); },300);
+function onSlideChangeStart(){
+  for(var k in players){
+    try {
+      if(players[k].getPlayerState() === 1) {
+        lastTimes[k] = players[k].getCurrentTime();
+      }
+      players[k].pauseVideo();
+    } catch(e){}
+  }
+  stopMon();
 }
-function handlePlayClick(i){ userInteracted=true; playVideo(i, !isPaused[i]); isPaused[i]=false; }
-function handleLayerClick(i){ if(!userInteracted){userInteracted=true; playVideo(i, true); isPaused[i]=false; return;} toggle(i); }
-function toggle(i){ var p=players[i]; if(p.getPlayerState()===1){ p.pauseVideo(); isPaused[i]=true; } else { resumeVideo(i); } }
+function onSlideChangeEnd(){
+  var idx=swiper.activeIndex;
+  if(userInteracted) {
+    setTimeout(function(){ 
+      playVideo(idx, lastTimes[idx] === 0); 
+    }, 300);
+  }
+}
+function handlePlayClick(i){ userInteracted=true; playVideo(i, false); isPaused[i]=false; }
+function handleLayerClick(i){ 
+  if(!userInteracted){ userInteracted=true; playVideo(i, true); isPaused[i]=false; return; }
+  toggle(i);
+}
+function toggle(i){ 
+  var p=players[i]; 
+  if(p.getPlayerState()===1){ 
+    lastTimes[i] = p.getCurrentTime(); 
+    p.pauseVideo(); isPaused[i]=true; 
+  } else { 
+    resumeVideo(i); 
+  } 
+}
 function resumeVideo(i){
   var p=players[i];
   p.playVideo();
   isPaused[i]=false;
 }
 function playVideo(i, seekToStart){
-  var p=players[i];
+  var p=players[i]; if(!p) return;
   if(seekToStart){
     var seg=activeSegments[i]||0;
     var s=list[i].ranges[seg].s;
     p.seekTo(s,true);
+  } else if(lastTimes[i] > 0) {
+    p.seekTo(lastTimes[i], true);
   }
   p.playVideo();
 }
 function stopMon(){ if(timer){ clearInterval(timer); timer=null; } }
-function stopAll(){
-  stopMon();
-  for(var k in players){ try{players[k].pauseVideo();}catch(e){} }
-  var thumbs=document.querySelectorAll(".thumb"); for(var i=0;i<thumbs.length;i++) thumbs[i].classList.remove("hide");
-  var btns=document.querySelectorAll(".play-btn"); for(var i=0;i<btns.length;i++) btns[i].classList.remove("hide");
-  for(var i=0;i<list.length;i++) isPaused[i]=false;
-}
 function goNext(){
   stopMon();
   var curr=swiper.activeIndex;
-  var p=players[curr];
-  try{ p.pauseVideo(); }catch(e){}
-  if(curr < list.length-1){
-    swiper.slideNext();
-  }else{
-    for(var i=0;i<list.length;i++){ activeSegments[i]=0; isPaused[i]=false; }
+  lastTimes[curr] = 0; 
+  if(curr < list.length-1){ swiper.slideNext(); }
+  else {
+    for(var i=0;i<list.length;i++){ activeSegments[i]=0; isPaused[i]=false; lastTimes[i]=0; }
     swiper.slideTo(0, 300);
     setTimeout(function(){
       var thumbs=document.querySelectorAll(".thumb"); for(var i=0;i<thumbs.length;i++) thumbs[i].classList.remove("hide");
@@ -181,7 +193,7 @@ function startMon(i){
     var r=list[i].ranges[seg];
     if(r.e>0 && currTime>=r.e-0.2){
       if(seg<list[i].ranges.length-1){
-        activeSegments[i]=seg+1;
+        activeSegments[i]=seg+1; lastTimes[i]=0; 
         p.seekTo(list[i].ranges[seg+1].s, true);
       }else{
         goNext();

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Player</title>
+<title>GAS Player</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
 <style>
   *{box-sizing:border-box;}
@@ -11,8 +11,8 @@
   .swiper{width:100%;height:100%;max-width:480px;margin:0 auto;background:#000;position:relative;}
   .swiper-slide{width:100%;height:100%;overflow:hidden;position:relative;background:#000;}
   iframe{width:100%;height:100%;border:0;}
-  .thumb{position:absolute;top:0;left:0;width:100%;height:100%;z-index:5;transition:opacity 0.3s;overflow:hidden;}
-  .thumb img{width:100%;height:100%;object-fit:cover;}
+  .thumb{position:absolute;top:0;left:0;width:100%;height:100%;z-index:5;transition:opacity:0.3s;overflow:hidden;}
+  .thumb img{width:100%;height:100vh;object-fit:cover;}
   .thumb.hide{opacity:0;pointer-events:none;}
   .smart-layer{position:absolute;top:0;left:0;width:100%;height:100%;z-index:50;background:transparent;cursor:pointer;clip-path:polygon(0% 0%, 100% 0%, 100% 80%, 65% 80%, 65% 100%, 0% 100%);}
   .play-btn{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:70px;height:70px;z-index:55;background:rgba(0,0,0,0.6);border-radius:50%;display:flex;justify-content:center;align-items:center;}
@@ -26,13 +26,9 @@
   .mode-btn:hover{background:rgba(0,0,0,0.7);border-color:rgba(255,255,255,0.6);}
   .mode-btn.active{background:rgba(255,255,255,0.2);border-color:#fff;}
   .mode-btn svg{width:20px;height:20px;fill:#fff;}
-  .mask-top{position:absolute;top:0;left:0;width:100%;height:60px;z-index:52;}
-  .mask-bottom{position:absolute;bottom:0;left:0;width:100%;height:50px;z-index:52;display:flex;}
-  .block-area{flex:1;pointer-events:auto;}
-  .pass-area{width:130px;pointer-events:none;}
   .top-header{position:absolute;top:0;left:0;width:100%;padding:15px;color:#fff;text-align:center;z-index:10;font-weight:bold;}
   .vid-wrap{position:absolute;left:0;width:100%;overflow:hidden;transition:all 0.3s;}
-  .full .vid-wrap{top:0;height:100%;padding-top:0;transform:none;}
+  .full .vid-wrap{top:0;height:100%;}
   .full .player-wrap{position:absolute;top:0;left:50%;width:177.78vh;height:100%;transform:translateX(-50%);z-index:2;}
   @media(max-aspect-ratio:9/16){.full .player-wrap{width:320%;left:-110%;transform:none;}}
   .fit .vid-wrap{top:50%;padding-top:56.25%;transform:translateY(-50%);}
@@ -46,61 +42,48 @@
 <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
 <script>
 var list = [{"id":"A8q6K4sDOVo","title":"","mode":"full","ranges":[{"s":0,"e":0}],"topText":"","sub":"","poster":"https://i.ytimg.com/vi/1sGHYtKBS3Y/oar2.jpg?sqp=-oaymwEkCJUDENAFSFqQAgHyq4qpAxMIARUAAAAAJQAAyEI9AICiQ3gB&rs=AOn4CLB4gdSNw1rEw0RXZXXanwQ1BV2VRQ"},{"id":"AGHyJkgUrUI","title":"","mode":"full","ranges":[{"s":0,"e":0}],"topText":"","sub":"","poster":""},{"id":"3x3-YOlPJB0","title":"","mode":"full","ranges":[{"s":0,"e":0}],"topText":"","sub":"","poster":""}];
-var iconFit = '<svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="1" fill="none" stroke="#fff" stroke-width="2"/></svg>';
-var iconSquare = '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="1" fill="none" stroke="#fff" stroke-width="2"/></svg>';
-var iconFull = '<svg viewBox="0 0 24 24"><path d="M3 3h7v2H5v5H3V3zm11 0h7v7h-2V5h-5V3zM5 14v5h5v2H3v-7h2zm14 0v5h-5v2h7v-7h-2z"/></svg>';
-var swiper, players={}, subs={}, timer=null, userInteracted=false, apiReady=false, activeSegments={}, currentModes={}, isPaused={};
+var swiper, players={}, timer=null, userInteracted=false, apiReady=false, activeSegments={}, currentModes={}, lastTimes={};
 function getThumbUrl(vid){ return "https://img.youtube.com/vi/"+vid+"/hqdefault.jpg"; }
-function createModeBtns(i, mode){
-  var h = '<div class="mode-btns">';
-  h += '<div class="mode-btn'+(mode==="fit"?" active":"")+'" data-idx="'+i+'" data-mode="fit">'+iconFit+'</div>';
-  h += '<div class="mode-btn'+(mode==="square"?" active":"")+'" data-idx="'+i+'" data-mode="square">'+iconSquare+'</div>';
-  h += '<div class="mode-btn'+(mode==="full"?" active":"")+'" data-idx="'+i+'" data-mode="full">'+iconFull+'</div>';
-  h += '</div>';
-  return h;
-}
 function init(){
   var w=document.getElementById("wrap");
   for(var i=0; i<list.length; i++){
     var v = list[i];
-    activeSegments[i]=0;
-    currentModes[i]=v.mode;
-    isPaused[i]=false;
+    activeSegments[i]=0; currentModes[i]=v.mode; lastTimes[i]=0;
     var d=document.createElement("div");
-    d.className="swiper-slide " + v.mode;
-    d.id="slide-"+i;
-    subs[i]=parseSrt(v.sub);
+    d.className="swiper-slide " + v.mode; d.id="slide-"+i;
     var imgUrl = v.poster ? v.poster : getThumbUrl(v.id);
     var thumb = '<div class="thumb" id="thumb-'+i+'"><img src="'+imgUrl+'" alt=""></div>';
     var playerDiv = '<div class="player-wrap"><div id="p-'+i+'"></div></div>';
-    var masks = '<div class="mask-top"></div><div class="mask-bottom"><div class="block-area"></div><div class="pass-area"></div></div>';
     var controls = '<div class="smart-layer" data-idx="'+i+'"></div><div class="play-btn" id="btn-'+i+'" data-idx="'+i+'"></div><div class="sub-box" id="sub-'+i+'"></div>';
-    var modeBtns = createModeBtns(i, v.mode);
-    var header = v.topText ? '<div class="top-header" id="header-'+i+'">'+v.topText+'</div>' : '';
     var badge = '<div class="badge">'+v.title+'</div>';
-    d.innerHTML = thumb + header + '<div class="vid-wrap">' + playerDiv + masks + '</div>' + controls + modeBtns + badge;
+    d.innerHTML = thumb + '<div class="vid-wrap">' + playerDiv + '</div>' + controls + badge;
     w.appendChild(d);
   }
   document.addEventListener("click", function(e){
-    var b=e.target.closest(".play-btn"), l=e.target.closest(".smart-layer"), m=e.target.closest(".mode-btn");
-    if(m){ setMode(parseInt(m.dataset.idx), m.dataset.mode); return; }
-    if(b) handlePlayClick(parseInt(b.dataset.idx));
-    else if(l) handleLayerClick(parseInt(l.dataset.idx));
+    var b=e.target.closest(".play-btn"), l=e.target.closest(".smart-layer");
+    if(b || l){ userInteracted=true; toggle(parseInt((b||l).dataset.idx)); }
   });
-  swiper=new Swiper(".swiper",{ direction:"vertical", loop:false, on:{ slideChange:onSlideChange } });
+  swiper=new Swiper(".swiper",{ direction:"vertical", on:{ slideChangeTransitionEnd:onSlideChange } });
   loadYouTubeAPI();
 }
-function setMode(i, mode){
-  if(currentModes[i] === mode) return;
-  var slide = document.getElementById("slide-"+i);
-  slide.classList.remove("full", "fit", "square");
-  slide.classList.add(mode);
-  currentModes[i] = mode;
-  var btns = slide.querySelectorAll(".mode-btn");
-  for(var j=0; j<btns.length; j++){
-    if(btns[j].dataset.mode === mode) btns[j].classList.add("active");
-    else btns[j].classList.remove("active");
+function onSlideChange(){
+  var prev = swiper.previousIndex;
+  if(players[prev]){
+    lastTimes[prev] = players[prev].getCurrentTime();
+    players[prev].pauseVideo();
   }
+  var idx=swiper.activeIndex;
+  if(userInteracted) playVideo(idx);
+}
+function toggle(i){
+  var p=players[i]; if(!p) return;
+  if(p.getPlayerState()===1) { p.pauseVideo(); } else { playVideo(i); }
+}
+function playVideo(i){
+  var p=players[i]; if(!p) return;
+  var startTime = lastTimes[i] > 0 ? lastTimes[i] : list[i].ranges[activeSegments[i]].s;
+  p.seekTo(startTime, true);
+  p.playVideo();
 }
 function loadYouTubeAPI(){
   var tag=document.createElement("script"); tag.src="https://www.youtube.com/iframe_api";
@@ -111,7 +94,8 @@ function createPlayers(){
   for(var i=0; i<list.length; i++){
     (function(idx){
       players[idx]=new YT.Player("p-"+idx, {
-        videoId:list[idx].id, playerVars:{"controls":0,"modestbranding":1,"playsinline":1,"rel":0,"enablejsapi":1},
+        videoId:list[idx].id,
+        playerVars:{"controls":0,"modestbranding":1,"playsinline":1,"rel":0,"enablejsapi":1},
         events:{"onStateChange":function(e){ onStateChange(e,idx); }}
       });
     })(i);
@@ -120,76 +104,22 @@ function createPlayers(){
 function onStateChange(e,i){
   var b=document.getElementById("btn-"+i), t=document.getElementById("thumb-"+i);
   if(e.data===1){ b.classList.add("hide"); t.classList.add("hide"); startMon(i); }
-  else if(e.data===2){ b.classList.remove("hide"); stopMon(); isPaused[i]=true; }
-}
-function onSlideChange(){
-  stopAll();
-  var idx=swiper.activeIndex;
-  activeSegments[idx]=0;
-  isPaused[idx]=false;
-  if(userInteracted) setTimeout(function(){ playVideo(idx, true); },300);
-}
-function handlePlayClick(i){ userInteracted=true; playVideo(i, !isPaused[i]); isPaused[i]=false; }
-function handleLayerClick(i){ if(!userInteracted){userInteracted=true; playVideo(i, true); isPaused[i]=false; return;} toggle(i); }
-function toggle(i){ var p=players[i]; if(p.getPlayerState()===1){ p.pauseVideo(); isPaused[i]=true; } else { resumeVideo(i); } }
-function resumeVideo(i){
-  var p=players[i];
-  p.playVideo();
-  isPaused[i]=false;
-}
-function playVideo(i, seekToStart){
-  var p=players[i];
-  if(seekToStart){
-    var seg=activeSegments[i]||0;
-    var s=list[i].ranges[seg].s;
-    p.seekTo(s,true);
-  }
-  p.playVideo();
-}
-function stopMon(){ if(timer){ clearInterval(timer); timer=null; } }
-function stopAll(){
-  stopMon();
-  for(var k in players){ try{players[k].pauseVideo();}catch(e){} }
-  var thumbs=document.querySelectorAll(".thumb"); for(var i=0;i<thumbs.length;i++) thumbs[i].classList.remove("hide");
-  var btns=document.querySelectorAll(".play-btn"); for(var i=0;i<btns.length;i++) btns[i].classList.remove("hide");
-  for(var i=0;i<list.length;i++) isPaused[i]=false;
-}
-function goNext(){
-  stopMon();
-  var curr=swiper.activeIndex;
-  var p=players[curr];
-  try{ p.pauseVideo(); }catch(e){}
-  if(curr < list.length-1){
-    swiper.slideNext();
-  }else{
-    for(var i=0;i<list.length;i++){ activeSegments[i]=0; isPaused[i]=false; }
-    swiper.slideTo(0, 300);
-    setTimeout(function(){
-      var thumbs=document.querySelectorAll(".thumb"); for(var i=0;i<thumbs.length;i++) thumbs[i].classList.remove("hide");
-      var btns=document.querySelectorAll(".play-btn"); for(var i=0;i<btns.length;i++) btns[i].classList.remove("hide");
-      if(userInteracted) playVideo(0, true);
-    }, 400);
-  }
+  else { b.classList.remove("hide"); stopMon(); }
 }
 function startMon(i){
   stopMon();
   timer=setInterval(function(){
-    var p=players[i];
-    if(!p || typeof p.getCurrentTime !== "function") return;
-    var currTime=p.getCurrentTime();
-    var seg=activeSegments[i]||0;
-    var r=list[i].ranges[seg];
-    if(r.e>0 && currTime>=r.e-0.2){
-      if(seg<list[i].ranges.length-1){
-        activeSegments[i]=seg+1;
-        p.seekTo(list[i].ranges[seg+1].s, true);
-      }else{
-        goNext();
-      }
+    var p=players[i]; if(!p || typeof p.getCurrentTime !== "function") return;
+    var curr=p.getCurrentTime(); lastTimes[i]=curr;
+    var r=list[i].ranges[activeSegments[i]];
+    if(r.e>0 && curr>=r.e-0.2){
+      if(activeSegments[i]<list[i].ranges.length-1){
+        activeSegments[i]++; p.seekTo(list[i].ranges[activeSegments[i]].s, true);
+      } else { swiper.slideNext(); }
     }
-  },100);
+  },500);
 }
-function parseSrt(t){ if(!t||t.indexOf("-->")<0) return t?[{s:0,e:9999,t:t}]:[]; return []; }
+function stopMon(){ if(timer){ clearInterval(timer); timer=null; } }
 init();
 </script>
 </body>

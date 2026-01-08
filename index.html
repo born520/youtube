@@ -133,21 +133,19 @@ function handleInteract(e){
     e.preventDefault(); 
     setMode(parseInt(m.dataset.idx), m.dataset.mode); return; 
   }
-  if(b){ 
-    e.preventDefault();
-    userInteracted=true; 
-    b.classList.add("hide"); 
-    playVideo(parseInt(b.dataset.idx), true); 
-  }
-  else if(l){ 
-    if(!userInteracted){ 
-       e.preventDefault();
-       userInteracted=true; 
-       var bBtn = document.getElementById("btn-"+l.dataset.idx);
-       if(bBtn) bBtn.classList.add("hide");
-       playVideo(parseInt(l.dataset.idx), true); 
-    } else { 
-       toggle(parseInt(l.dataset.idx)); 
+  var targetIdx = -1;
+  if(b) targetIdx = parseInt(b.dataset.idx);
+  else if(l) targetIdx = parseInt(l.dataset.idx);
+  if(targetIdx >= 0){
+    if(!playerReady[targetIdx]) return;
+    if(b || (l && !userInteracted)){
+      userInteracted = true;
+      // 버튼 숨기기 (준비 됐으니 숨겨도 됨)
+      var btn = document.getElementById("btn-"+targetIdx);
+      if(btn) btn.classList.add("hide");
+      playVideo(targetIdx, true);
+    } else if(l){
+      toggle(targetIdx);
     }
   }
 }
@@ -162,7 +160,6 @@ function setMode(i, mode){
 }
 function onStateChange(e,i){
   var b=document.getElementById("btn-"+i), t=document.getElementById("thumb-"+i);
-  // [수정 핵심 2] 실제 재생됨(State=1)이 확인되었을 때만 썸네일을 숨깁니다.
   if(e.data===1){ 
     b.classList.add("hide"); 
     t.classList.add("hide"); 
@@ -186,7 +183,6 @@ function playVideo(i, seekToStart){
   var p=players[i];
   var seg=activeSegments[i]||0;
   var startTime = list[i].ranges[seg].s;
-  // [수정 핵심 3] 첫 재생 시 무조건 playVideo만 호출하여 충돌 방지
   if(!hasPlayed[i]) {
     hasPlayed[i] = true;
     p.playVideo();

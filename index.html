@@ -7,16 +7,17 @@
 <script src="https://www.youtube.com/iframe_api"></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
 <style>
-  *{box-sizing:border-box;}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
   body,html{margin:0;padding:0;width:100%;height:100%;background:#000;overflow:hidden;font-family:sans-serif;}
   .swiper{width:100%;height:100%;max-width:480px;margin:0 auto;background:#000;position:relative;}
   .swiper-slide{width:100%;height:100%;overflow:hidden;position:relative;background:#000;}
   iframe{width:100%;height:100%;border:0;}
-  .thumb{position:absolute;top:0;left:0;width:100%;height:100vh;z-index:5;transition:opacity 0.3s;overflow:hidden;}
+  .thumb{position:absolute;top:0;left:0;width:100%;height:100vh;z-index:5;transition:opacity 0.2s;overflow:hidden;}
   .thumb img{width:100%;height:100%;object-fit:cover;}
   .thumb.hide{opacity:0;pointer-events:none;}
   .smart-layer{position:absolute;top:0;left:0;width:100%;height:100%;z-index:50;background:transparent;cursor:pointer;clip-path:polygon(0% 0%, 100% 0%, 100% 80%, 65% 80%, 65% 100%, 0% 100%);}
-  .play-btn{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:70px;height:70px;z-index:55;background:rgba(0,0,0,0.6);border-radius:50%;display:flex;justify-content:center;align-items:center;cursor:pointer;}
+  .play-btn{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:70px;height:70px;z-index:55;background:rgba(0,0,0,0.6);border-radius:50%;display:flex;justify-content:center;align-items:center;cursor:pointer;transition:transform 0.1s;}
+  .play-btn:active{transform:translate(-50%,-50%) scale(0.95);}
   .play-btn::after{content:"";width:0;height:0;border-left:25px solid #fff;border-top:15px solid transparent;border-bottom:15px solid transparent;margin-left:5px;}
   .play-btn.hide{opacity:0;pointer-events:none;}
   .sub-box{position:absolute;left:50%;transform:translateX(-50%);bottom:10%;max-width:90%;text-align:center;color:#fff;z-index:60;pointer-events:none;text-shadow:1px 1px 2px #000;background:rgba(0,0,0,0.5);padding:8px 16px;border-radius:8px;opacity:0;transition:all 0.1s;}
@@ -57,9 +58,13 @@ window.onYouTubeIframeAPIReady=function(){
 };
 function createFirstPlayer(){
   if(list.length === 0) return;
+  var startSec = Math.floor(list[0].ranges[0].s);
   players[0] = new YT.Player("p-0", {
     videoId: list[0].id,
-    playerVars: {controls:0, modestbranding:1, playsinline:1, rel:0, enablejsapi:1},
+    playerVars: {
+      controls:0, modestbranding:1, playsinline:1, rel:0, enablejsapi:1,
+      start: startSec
+    },
     events: {
       onReady: function(e){ onFirstPlayerReady(e); },
       onStateChange: function(e){ onStateChange(e, 0); }
@@ -76,9 +81,13 @@ function loadNextPlayer(){
   if(loadQueue.length === 0 || isLoading) return;
   isLoading = true;
   var idx = loadQueue.shift();
+  var startSec = Math.floor(list[idx].ranges[0].s);
   players[idx] = new YT.Player("p-"+idx, {
     videoId: list[idx].id,
-    playerVars: {controls:0, modestbranding:1, playsinline:1, rel:0, enablejsapi:1},
+    playerVars: {
+      controls:0, modestbranding:1, playsinline:1, rel:0, enablejsapi:1,
+      start: startSec
+    },
     events: {
       onReady: function(e){ onPlayerReady(e, idx); },
       onStateChange: function(e){ onStateChange(e, idx); }
@@ -114,13 +123,35 @@ function init(){
     d.innerHTML = thumb + header + '<div class="vid-wrap">' + playerDiv + masks + '</div>' + controls + modeBtns + '<div class="badge">'+v.title+'</div>';
     w.appendChild(d);
   }
-  document.addEventListener("click", function(e){
-    var b=e.target.closest(".play-btn"), l=e.target.closest(".smart-layer"), m=e.target.closest(".mode-btn");
-    if(m){ setMode(parseInt(m.dataset.idx), m.dataset.mode); return; }
-    if(b){ userInteracted=true; playVideo(parseInt(b.dataset.idx), true); }
-    else if(l){ if(!userInteracted){ userInteracted=true; playVideo(parseInt(l.dataset.idx), true); } else toggle(parseInt(l.dataset.idx)); }
-  });
+  document.addEventListener("click", handleInteract);
+  document.addEventListener("touchend", handleInteract);
   swiper=new Swiper(".swiper",{ direction:"vertical", on:{ slideChangeTransitionStart:onSlideChangeStart, slideChangeTransitionEnd:onSlideChangeEnd } });
+}
+function handleInteract(e){
+  var b=e.target.closest(".play-btn"), l=e.target.closest(".smart-layer"), m=e.target.closest(".mode-btn");
+  if(m){ 
+    e.preventDefault(); 
+    setMode(parseInt(m.dataset.idx), m.dataset.mode); return; 
+  }
+  if(b){ 
+    e.preventDefault();
+    userInteracted=true; 
+    b.classList.add("hide"); 
+    var t = document.getElementById("thumb-"+b.dataset.idx); if(t) t.classList.add("hide");
+    playVideo(parseInt(b.dataset.idx), true); 
+  }
+  else if(l){ 
+    if(!userInteracted){ 
+       e.preventDefault();
+       userInteracted=true; 
+       var bBtn = document.getElementById("btn-"+l.dataset.idx);
+       if(bBtn) bBtn.classList.add("hide");
+       var t = document.getElementById("thumb-"+l.dataset.idx); if(t) t.classList.add("hide");
+       playVideo(parseInt(l.dataset.idx), true); 
+    } else { 
+       toggle(parseInt(l.dataset.idx)); 
+    }
+  }
 }
 function setMode(i, mode){
   var slide = document.getElementById("slide-"+i);
@@ -135,6 +166,7 @@ function onStateChange(e,i){
   var b=document.getElementById("btn-"+i), t=document.getElementById("thumb-"+i);
   if(e.data===1){ b.classList.add("hide"); t.classList.add("hide"); isPaused[i]=false; startMon(i); }
   else if(e.data===2){ b.classList.remove("hide"); stopMon(); isPaused[i]=true; }
+  else if(e.data===0){ b.classList.remove("hide"); }
 }
 function onSlideChangeStart(){
   for(var k in players){ try{ if(players[k] && players[k].getPlayerState()===1) lastTimes[k]=players[k].getCurrentTime(); if(players[k]) players[k].pauseVideo(); }catch(e){} }
@@ -151,7 +183,10 @@ function playVideo(i, seekToStart){
   var seg=activeSegments[i]||0;
   var startTime = list[i].ranges[seg].s;
   if(seekToStart || lastTimes[i] === 0) {
-    if(startTime > 0) p.seekTo(startTime, true);
+    var current = p.getCurrentTime();
+    if(Math.abs(current - startTime) > 1) {
+       p.seekTo(startTime, true);
+    }
   } else {
     p.seekTo(lastTimes[i], true);
   }

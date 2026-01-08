@@ -24,6 +24,10 @@
   .mode-btn{width:40px;height:40px;background:rgba(0,0,0,0.5);border-radius:8px;display:flex;justify-content:center;align-items:center;cursor:pointer;border:2px solid rgba(255,255,255,0.3);transition:all 0.2s;}
   .mode-btn.active{background:rgba(255,255,255,0.2);border-color:#fff;}
   .mode-btn svg{width:20px;height:20px;fill:#fff;}
+  .mask-top{position:absolute;top:0;left:0;width:100%;height:60px;z-index:52;}
+  .mask-bottom{position:absolute;bottom:0;left:0;width:100%;height:50px;z-index:52;display:flex;}
+  .block-area{flex:1;pointer-events:auto;}
+  .pass-area{width:130px;pointer-events:none;}
   .top-header{position:absolute;top:0;left:0;width:100%;padding:15px;color:#fff;text-align:center;z-index:10;font-weight:bold;}
   .vid-wrap{position:absolute;left:0;width:100%;overflow:hidden;transition:all 0.3s;}
   .full .vid-wrap{top:0;height:100%;}
@@ -61,19 +65,19 @@ function init(){
     var imgUrl = v.poster ? v.poster : "https://img.youtube.com/vi/"+v.id+"/hqdefault.jpg";
     var thumb = '<div class="thumb" id="thumb-'+i+'"><img src="'+imgUrl+'"></div>';
     var playerDiv = '<div class="player-wrap"><div id="p-'+i+'"></div></div>';
+    var masks = '<div class="mask-top"></div><div class="mask-bottom"><div class="block-area"></div><div class="pass-area"></div></div>';
     var controls = '<div class="smart-layer" data-idx="'+i+'"></div><div class="play-btn" id="btn-'+i+'" data-idx="'+i+'"></div><div class="sub-box" id="sub-'+i+'"></div>';
     var modeBtns = createModeBtns(i, v.mode);
     var header = v.topText ? '<div class="top-header">'+v.topText+'</div>' : '';
-    d.innerHTML = thumb + header + '<div class="vid-wrap">' + playerDiv + '</div>' + controls + modeBtns + '<div class="badge">'+v.title+'</div>';
+    d.innerHTML = thumb + header + '<div class="vid-wrap">' + playerDiv + masks + '</div>' + controls + modeBtns + '<div class="badge">'+v.title+'</div>';
     w.appendChild(d);
   }
   document.addEventListener("click", function(e){
     var b=e.target.closest(".play-btn"), l=e.target.closest(".smart-layer"), m=e.target.closest(".mode-btn");
     if(m){ setMode(parseInt(m.dataset.idx), m.dataset.mode); return; }
     if(b || l) {
-      userInteracted = true;
-      handleAction(parseInt((b||l).dataset.idx);
-);
+      userInteracted = true; 
+      handleAction(parseInt((b||l).dataset.idx));
     }
   });
   swiper=new Swiper(".swiper",{ direction:"vertical", on:{ slideChangeTransitionEnd:onSlideEnd } });
@@ -117,7 +121,7 @@ function onSlideEnd(){
 }
 function playVideo(i, seekToStart){
   var p=players[i]; if(!p) return;
-  if(!p.playVideo) { setTimeout(function(){ playVideo(i, seekToStart); }, 200); return; }
+  if(!p.playVideo) { setTimeout(function(){ playVideo(i, seekToStart); }, 250); return; }
   if(seekToStart) { var s = list[i].ranges[activeSegments[i]||0].s; p.seekTo(s, true); }
   else if(lastTimes[i]>0) { p.seekTo(lastTimes[i], true); }
   p.playVideo();
@@ -137,8 +141,9 @@ function startMon(i){
   },100);
 }
 function updateSub(i, curr){
-  var sBox = document.getElementById("sub-"+i); if(!sBox || !list[i].sub) return;
-  sBox.innerText = list[i].sub; sBox.classList.add("show");
+  var sBox = document.getElementById("sub-"+i); if(!sBox) return;
+  if(list[i].sub) { sBox.innerText = list[i].sub; sBox.classList.add("show"); }
+  else { sBox.classList.remove("show"); }
 }
 function stopMon(){ if(timer){clearInterval(timer); timer=null;} }
 function goNext(){ 

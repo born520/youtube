@@ -10,25 +10,30 @@
   body,html{margin:0;padding:0;width:100%;height:100%;background:#000;overflow:hidden;font-family:sans-serif;}
   .swiper{width:100%;height:100%;max-width:480px;margin:0 auto;background:#000;position:relative;}
   .swiper-slide{width:100%;height:100%;overflow:hidden;position:relative;background:#000;}
-  .thumb{position:absolute;top:0;left:0;width:100%;height:100%;z-index:5;transition:opacity 0.3s;overflow:hidden;}
+  .thumb{position:absolute;top:0;left:0;width:100%;height:100%;z-index:5;transition:opacity 0.3s;overflow:hidden;pointer-events:none;}
   .thumb img{width:100%;height:100%;object-fit:cover;}
-  .thumb.hide{opacity:0;pointer-events:none;}
+  .thumb.hide{opacity:0;}
   .smart-layer{position:absolute;top:0;left:0;width:100%;height:100%;z-index:50;background:transparent;cursor:pointer;clip-path:polygon(0% 0%, 100% 0%, 100% 80%, 65% 80%, 65% 100%, 0% 100%);}
-  .play-btn{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:70px;height:70px;z-index:55;background:rgba(0,0,0,0.6);border-radius:50%;display:flex;justify-content:center;align-items:center;}
+  .play-btn{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:70px;height:70px;z-index:55;background:rgba(0,0,0,0.6);border-radius:50%;display:flex;justify-content:center;align-items:center;transition:opacity 0.2s;}
   .play-btn::after{content:"";width:0;height:0;border-left:25px solid #fff;border-top:15px solid transparent;border-bottom:15px solid transparent;margin-left:5px;}
   .badge{position:absolute;top:20px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.6);color:#fff;padding:5px 15px;border-radius:15px;font-size:14px;z-index:20;}
+  .top-header{position:absolute;top:0;left:0;width:100%;padding:15px;color:#fff;text-align:center;z-index:10;font-weight:bold;}
   .mode-btns{position:absolute;bottom:15px;right:15px;display:flex;flex-direction:column;gap:8px;z-index:60;}
   .mode-btn{width:40px;height:40px;background:rgba(0,0,0,0.5);border-radius:8px;display:flex;justify-content:center;align-items:center;cursor:pointer;border:2px solid rgba(255,255,255,0.3);}
   .mode-btn.active{background:rgba(255,255,255,0.2);border-color:#fff;}
   .mode-btn svg{width:20px;height:20px;fill:#fff;}
-  .vid-wrap{position:absolute;left:0;width:100%;height:100%;overflow:hidden;}
-  .full .vid-wrap{top:0; display:flex; justify-content:center; align-items:center;}
-  .full .player-wrap{position:relative; width:177.78vh; height:100vh; z-index:2;}
-  @media(max-aspect-ratio:9/16){.full .player-wrap{width:320%; height:100%;}}
-  .fit .vid-wrap{top:50%; height:56.25vw; transform:translateY(-50%);}
-  .fit .player-wrap{position:absolute; top:0; left:0; width:100%; height:100%;}
-  .square .vid-wrap{top:50%; height:100vw; transform:translateY(-50%);}
-  .square .player-wrap{position:absolute; top:0; left:50%; width:177.78%; height:100%; transform:translateX(-50%);}
+  .vid-wrap{position:absolute;width:100%;pointer-events:none;}
+  .player-box{position:relative;width:100%;height:0;overflow:hidden;}
+  .player-box iframe{position:absolute;top:0;left:0;width:100%;height:100%;}
+  .fit .vid-wrap{top:50%;transform:translateY(-50%);}
+  .fit .player-box{padding-top:56.25%;}
+  .square .vid-wrap{top:50%;transform:translateY(-50%);}
+  .square .player-box{padding-top:100%;}
+  .full .vid-wrap{width:100%;height:100%;top:0;left:0;overflow:hidden;}
+  .full .player-box{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:177.78vh;height:100vh;padding-top:0;}
+  @media (min-aspect-ratio: 16/9) {
+    .full .player-box{width:100vw;height:56.25vw;}
+  }
 </style>
 </head>
 <body>
@@ -48,7 +53,7 @@ function init(){
     var d=document.createElement("div"); d.className="swiper-slide " + v.mode; d.id="slide-"+i;
     var imgUrl = v.poster ? v.poster : "https://img.youtube.com/vi/"+v.id+"/hqdefault.jpg";
     var thumb = '<div class="thumb" id="thumb-'+i+'"><img src="'+imgUrl+'" alt=""></div>';
-    var playerDiv = '<div class="player-wrap"><div id="p-'+i+'"></div></div>';
+    var playerDiv = '<div class="player-box"><div id="p-'+i+'"></div></div>';
     var controls = '<div class="smart-layer" data-idx="'+i+'"></div><div class="play-btn" id="btn-'+i+'" data-idx="'+i+'"></div>';
     var modeBtns = '<div class="mode-btns">'+
       '<div class="mode-btn'+(v.mode==="fit"?" active":"")+'" data-idx="'+i+'" data-mode="fit">'+iconFit+'</div>'+
@@ -86,7 +91,7 @@ function createPlayers(){
 }
 function onStateChange(e,i){
   var b=document.getElementById("btn-"+i), t=document.getElementById("thumb-"+i);
-  if(e.data===1){ b.style.opacity="0"; b.style.pointerEvents="none"; t.style.opacity="0"; t.style.pointerEvents="none"; startMon(i); }
+  if(e.data===1){ b.style.opacity="0"; b.style.pointerEvents="none"; t.style.opacity="0"; startMon(i); }
   else if(e.data===2){ b.style.opacity="1"; b.style.pointerEvents="auto"; stopMon(); isPaused[i]=true; }
 }
 function onSlideChange(){

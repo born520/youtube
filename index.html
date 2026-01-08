@@ -12,7 +12,7 @@
   .swiper{width:100%;height:100%;max-width:480px;margin:0 auto;background:#000;position:relative;}
   .swiper-slide{width:100%;height:100%;overflow:hidden;position:relative;background:#000;}
   iframe{width:100%;height:100%;border:0;}
-  .thumb{position:absolute;top:0;left:0;width:100%;height:100vh;z-index:5;transition:opacity 0.2s;overflow:hidden;}
+  .thumb{position:absolute;top:0;left:0;width:100%;height:100vh;z-index:5;transition:opacity 0.4s;overflow:hidden;}
   .thumb img{width:100%;height:100%;object-fit:cover;}
   .thumb.hide{opacity:0;pointer-events:none;}
   .smart-layer{position:absolute;top:0;left:0;width:100%;height:100%;z-index:50;background:transparent;cursor:pointer;clip-path:polygon(0% 0%, 100% 0%, 100% 80%, 65% 80%, 65% 100%, 0% 100%);}
@@ -137,7 +137,6 @@ function handleInteract(e){
     e.preventDefault();
     userInteracted=true; 
     b.classList.add("hide"); 
-    var t = document.getElementById("thumb-"+b.dataset.idx); if(t) t.classList.add("hide");
     playVideo(parseInt(b.dataset.idx), true); 
   }
   else if(l){ 
@@ -146,7 +145,6 @@ function handleInteract(e){
        userInteracted=true; 
        var bBtn = document.getElementById("btn-"+l.dataset.idx);
        if(bBtn) bBtn.classList.add("hide");
-       var t = document.getElementById("thumb-"+l.dataset.idx); if(t) t.classList.add("hide");
        playVideo(parseInt(l.dataset.idx), true); 
     } else { 
        toggle(parseInt(l.dataset.idx)); 
@@ -164,7 +162,13 @@ function setMode(i, mode){
 }
 function onStateChange(e,i){
   var b=document.getElementById("btn-"+i), t=document.getElementById("thumb-"+i);
-  if(e.data===1){ b.classList.add("hide"); t.classList.add("hide"); isPaused[i]=false; startMon(i); hasPlayed[i]=true; }
+  // [수정 핵심 2] 실제 재생됨(State=1)이 확인되었을 때만 썸네일을 숨깁니다.
+  if(e.data===1){ 
+    b.classList.add("hide"); 
+    t.classList.add("hide"); 
+    isPaused[i]=false; 
+    startMon(i); 
+  }
   else if(e.data===2){ b.classList.remove("hide"); stopMon(); isPaused[i]=true; }
   else if(e.data===0){ b.classList.remove("hide"); }
 }
@@ -182,12 +186,17 @@ function playVideo(i, seekToStart){
   var p=players[i];
   var seg=activeSegments[i]||0;
   var startTime = list[i].ranges[seg].s;
-  if(seg === 0 && !hasPlayed[i]) {
+  // [수정 핵심 3] 첫 재생 시 무조건 playVideo만 호출하여 충돌 방지
+  if(!hasPlayed[i]) {
+    hasPlayed[i] = true;
     p.playVideo();
     return;
   }
   if(seekToStart || lastTimes[i] === 0) {
-     p.seekTo(startTime, true);
+    var current = p.getCurrentTime();
+    if(Math.abs(current - startTime) > 1) {
+       p.seekTo(startTime, true);
+    }
   } else {
     p.seekTo(lastTimes[i], true);
   }
@@ -213,7 +222,7 @@ function goNext(){
   stopMon(); var curr=swiper.activeIndex; lastTimes[curr]=0;
   if(curr < list.length-1){ swiper.slideNext(); }
   else {
-    for(var i=0;i<list.length;i++){ activeSegments[i]=0; lastTimes[i]=0; hasPlayed[i]=false; }
+    for(var i=0;i<list.length;i++){ activeSegments[i]=0; lastTimes[i]=0; }
     swiper.slideTo(0, 300);
     setTimeout(function(){
       var ths = document.querySelectorAll(".thumb"); for(var x=0; x<ths.length; x++) ths[x].classList.remove("hide");

@@ -2,231 +2,226 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Player</title>
-<script src="https://www.youtube.com/iframe_api"></script>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Video Player</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css">
 <style>
-*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
-body,html{margin:0;padding:0;width:100%;height:100%;background:#000;overflow:hidden;font-family:sans-serif;}
-.swiper{width:100%;height:100%;max-width:480px;margin:0 auto;background:#000;position:relative;}
-.swiper-slide{width:100%;height:100%;overflow:hidden;position:relative;background:#000;}
-iframe{width:100%;height:100%;border:0;}
-.thumb{position:absolute;top:0;left:0;width:100%;height:100vh;z-index:5;transition:opacity 0.4s;overflow:hidden;}
-.thumb img{width:100%;height:100%;object-fit:cover;}
-.thumb.hide{opacity:0;pointer-events:none;}
-.smart-layer{position:absolute;top:0;left:0;width:100%;height:100%;z-index:50;background:transparent;cursor:pointer;clip-path:polygon(0% 0%, 100% 0%, 100% 80%, 65% 80%, 65% 100%, 0% 100%);}
-.play-btn{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:70px;height:70px;z-index:55;background:rgba(0,0,0,0.6);border-radius:50%;display:flex;justify-content:center;align-items:center;cursor:pointer;}
-.play-btn::after{content:"";width:0;height:0;border-left:25px solid #fff;border-top:15px solid transparent;border-bottom:15px solid transparent;margin-left:5px;}
-.play-btn.hide{opacity:0;pointer-events:none;}
-.badge{position:absolute;top:20px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.6);color:#fff;padding:5px 15px;border-radius:15px;font-size:14px;z-index:20;}
-.mode-btns{position:absolute;bottom:15px;right:15px;display:flex;flex-direction:column;gap:8px;z-index:60;}
-.mode-btn{width:40px;height:40px;background:rgba(0,0,0,0.5);border-radius:8px;display:flex;justify-content:center;align-items:center;cursor:pointer;border:2px solid rgba(255,255,255,0.3);}
-.mode-btn.active{background:rgba(255,255,255,0.2);border-color:#fff;}
-.mode-btn svg{width:20px;height:20px;fill:#fff;}
-.mask-top{position:absolute;top:0;left:0;width:100%;height:60px;z-index:52;}
-.mask-bottom{position:absolute;bottom:0;left:0;width:100%;height:50px;z-index:52;display:flex;}
-.block-area{flex:1;pointer-events:auto;}
-.pass-area{width:130px;pointer-events:none;}
-.top-header{position:absolute;top:0;left:0;width:100%;padding:15px;color:#fff;text-align:center;z-index:10;font-weight:bold;}
-.vid-wrap{position:absolute;left:0;width:100%;overflow:hidden;}
-.full .vid-wrap{top:0;height:100%;}
-.full .player-wrap{position:absolute;top:0;left:50%;width:177.78vh;height:100%;transform:translateX(-50%);z-index:2;}
-@media(max-aspect-ratio:9/16){.full .player-wrap{width:320%;left:-110%;transform:none;}}
-.fit .vid-wrap{top:50%;padding-top:56.25%;transform:translateY(-50%);}
-.fit .player-wrap{position:absolute;top:0;left:0;width:100%;height:100%;z-index:2;}
-.square .vid-wrap{top:50%;padding-top:100%;transform:translateY(-50%);}
-.square .player-wrap{position:absolute;top:0;left:50%;width:177.78%;height:100%;transform:translateX(-50%);z-index:2;}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;background:#000;overflow:hidden}
+.swiper{width:100%;height:100%;max-width:480px;margin:0 auto}
+.swiper-slide{position:relative;width:100%;height:100%;background:#000}
+.thumb{position:absolute;top:0;left:0;width:100%;height:100%;z-index:10}
+.thumb img{width:100%;height:100%;object-fit:cover}
+.thumb.hidden{display:none}
+.play-btn{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:80px;height:80px;background:rgba(0,0,0,0.7);border-radius:50%;z-index:20;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.play-btn::after{content:"";border-left:30px solid #fff;border-top:18px solid transparent;border-bottom:18px solid transparent;margin-left:8px}
+.play-btn.hidden{display:none}
+.video-container{position:absolute;top:0;left:0;width:100%;height:100%}
+.player-frame{position:absolute;width:100%;height:100%}
+.mode-full .player-frame{top:0;left:50%;width:177.78vh;height:100%;transform:translateX(-50%)}
+@media(max-aspect-ratio:9/16){.mode-full .player-frame{width:300%;left:-100%;transform:none}}
+.mode-fit .player-frame{top:50%;left:0;width:100%;padding-top:56.25%;transform:translateY(-50%)}
+.mode-fit .player-frame>div{position:absolute;top:0;left:0;width:100%;height:100%}
+.mode-square .player-frame{top:50%;left:50%;width:100%;padding-top:100%;transform:translate(-50%,-50%)}
+.mode-square .player-frame>div{position:absolute;top:0;left:0;width:100%;height:100%}
+.click-layer{position:absolute;top:0;left:0;width:100%;height:100%;z-index:15}
+.title-badge{position:absolute;top:20px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.6);color:#fff;padding:8px 16px;border-radius:20px;font-size:14px;z-index:25;white-space:nowrap}
+.top-text{position:absolute;top:0;left:0;width:100%;padding:15px;color:#fff;text-align:center;font-weight:bold;z-index:25}
+.mode-buttons{position:absolute;bottom:20px;right:20px;display:flex;flex-direction:column;gap:10px;z-index:30}
+.mode-btn{width:44px;height:44px;background:rgba(0,0,0,0.6);border:2px solid rgba(255,255,255,0.3);border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.mode-btn.active{background:rgba(255,255,255,0.3);border-color:#fff}
+.mode-btn svg{width:24px;height:24px;fill:#fff}
 </style>
 </head>
 <body>
-<div class="swiper"><div class="swiper-wrapper" id="wrap"></div></div>
+<div class="swiper"><div class="swiper-wrapper" id="container"></div></div>
 <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
 <script>
-var list=[{"id":"Wn7KRv-KmQk","title":"","mode":"full","ranges":[{"s":240,"e":245}],"topText":"","sub":"","poster":"https://i.ytimg.com/vi/1sGHYtKBS3Y/oar2.jpg?sqp=-oaymwEkCJUDENAFSFqQAgHyq4qpAxMIARUAAAAAJQAAyEI9AICiQ3gB&rs=AOn4CLB4gdSNw1rEw0RXZXXanwQ1BV2VRQ"}];
-var iconFit='<svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="1" fill="none" stroke="#fff" stroke-width="2"/></svg>';
-var iconSquare='<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="1" fill="none" stroke="#fff" stroke-width="2"/></svg>';
-var iconFull='<svg viewBox="0 0 24 24"><path d="M3 3h7v2H5v5H3V3zm11 0h7v7h-2V5h-5V3zM5 14v5h5v2H3v-7h2zm14 0v5h-5v2h7v-7h-2z"/></svg>';
-var swiper,players={},timer=null,userInteracted=false;
-var activeSegments={},currentModes={},lastTimes={},playerReady={};
-var loadQueue=[],isLoading=false;
+var DATA=[{"id":"Wn7KRv-KmQk","title":"","mode":"full","ranges":[{"s":240,"e":245}],"topText":"","poster":"https://i.ytimg.com/vi/1sGHYtKBS3Y/oar2.jpg?sqp=-oaymwEkCJUDENAFSFqQAgHyq4qpAxMIARUAAAAAJQAAyEI9AICiQ3gB&rs=AOn4CLB4gdSNw1rEw0RXZXXanwQ1BV2VRQ"}];
+var ICON_FIT='<svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2" fill="none" stroke="#fff" stroke-width="2"/></svg>';
+var ICON_SQUARE='<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2" fill="none" stroke="#fff" stroke-width="2"/></svg>';
+var ICON_FULL='<svg viewBox="0 0 24 24"><path d="M3 3h7v2H5v5H3V3zm11 0h7v7h-2V5h-5V3zM5 14v5h5v2H3v-7h2zm14 0v5h-5v2h7v-7h-2z" fill="#fff"/></svg>';
+var swiper;
+var players={};
+var ready={};
+var segments={};
+var modes={};
+var monitorTimer=null;
+var started=false;
+function createSlides(){
+  var container=document.getElementById("container");
+  for(var i=0;i<DATA.length;i++){
+    var v=DATA[i];
+    segments[i]=0;
+    modes[i]=v.mode;
+    ready[i]=false;
+    var slide=document.createElement("div");
+    slide.className="swiper-slide mode-"+v.mode;
+    slide.id="slide-"+i;
+    var img=v.poster||"https://img.youtube.com/vi/"+v.id+"/hqdefault.jpg";
+    var html="";
+    html+="<div class=\"thumb\" id=\"thumb-"+i+"\"><img src=\""+img+"\"></div>";
+    html+="<div class=\"video-container\"><div class=\"player-frame\"><div id=\"player-"+i+"\"></div></div></div>";
+    html+="<div class=\"click-layer\" data-index=\""+i+"\"></div>";
+    html+="<div class=\"play-btn\" id=\"btn-"+i+"\" data-index=\""+i+"\"></div>";
+    if(v.title)html+="<div class=\"title-badge\">"+v.title+"</div>";
+    if(v.topText)html+="<div class=\"top-text\">"+v.topText+"</div>";
+    html+="<div class=\"mode-buttons\">";
+    html+="<div class=\"mode-btn "+(v.mode==="fit"?"active":"")+"\" data-index=\""+i+"\" data-mode=\"fit\">"+ICON_FIT+"</div>";
+    html+="<div class=\"mode-btn "+(v.mode==="square"?"active":"")+"\" data-index=\""+i+"\" data-mode=\"square\">"+ICON_SQUARE+"</div>";
+    html+="<div class=\"mode-btn "+(v.mode==="full"?"active":"")+"\" data-index=\""+i+"\" data-mode=\"full\">"+ICON_FULL+"</div>";
+    html+="</div>";
+    slide.innerHTML=html;
+    container.appendChild(slide);
+  }
+}
+function loadYouTubeAPI(){
+  var tag=document.createElement("script");
+  tag.src="https://www.youtube.com/iframe_api";
+  document.head.appendChild(tag);
+}
 window.onYouTubeIframeAPIReady=function(){
-  createPlayer(0);
+  for(var i=0;i<DATA.length;i++){
+    createPlayer(i);
+  }
 };
-function createPlayer(idx){
-  if(players[idx]) return;
-  players[idx]=new YT.Player("p-"+idx,{
-    videoId:list[idx].id,
-    playerVars:{controls:0,modestbranding:1,playsinline:1,rel:0,fs:0},
+function createPlayer(index){
+  players[index]=new YT.Player("player-"+index,{
+    videoId:DATA[index].id,
+    playerVars:{
+      playsinline:1,
+      controls:0,
+      rel:0,
+      modestbranding:1,
+      fs:0
+    },
     events:{
-      onReady:function(){onReady(idx);},
-      onStateChange:function(e){onState(e,idx);}
+      onReady:function(){ready[index]=true;},
+      onStateChange:function(e){handleState(e,index);}
     }
   });
 }
-function onReady(idx){
-  playerReady[idx]=true;
-  isLoading=false;
-  if(idx===0){
-    for(var i=1;i<list.length;i++)loadQueue.push(i);
-    setTimeout(loadNext,2000);
+function handleState(event,index){
+  var state=event.data;
+  var btn=document.getElementById("btn-"+index);
+  var thumb=document.getElementById("thumb-"+index);
+  if(state===1){
+    btn.classList.add("hidden");
+    thumb.classList.add("hidden");
+    startMonitor(index);
+  }else if(state===2){
+    btn.classList.remove("hidden");
+    stopMonitor();
+  }else if(state===0){
+    nextSlide();
+  }
+}
+function startMonitor(index){
+  stopMonitor();
+  monitorTimer=setInterval(function(){
+    var p=players[index];
+    if(!p||!p.getCurrentTime)return;
+    var current=p.getCurrentTime();
+    var duration=p.getDuration();
+    var seg=segments[index];
+    var range=DATA[index].ranges[seg];
+    var endTime=range.e>0?range.e:duration;
+    if(current>=endTime-0.5){
+      if(seg<DATA[index].ranges.length-1){
+        segments[index]++;
+        p.seekTo(DATA[index].ranges[segments[index]].s,true);
+      }else{
+        nextSlide();
+      }
+    }
+  },200);
+}
+function stopMonitor(){
+  if(monitorTimer){clearInterval(monitorTimer);monitorTimer=null;}
+}
+function nextSlide(){
+  stopMonitor();
+  var current=swiper.activeIndex;
+  if(current<DATA.length-1){
+    swiper.slideNext();
   }else{
-    setTimeout(loadNext,1500);
+    for(var i=0;i<DATA.length;i++)segments[i]=0;
+    swiper.slideTo(0);
+    setTimeout(function(){
+      for(var i=0;i<DATA.length;i++){
+        document.getElementById("thumb-"+i).classList.remove("hidden");
+        document.getElementById("btn-"+i).classList.remove("hidden");
+      }
+    },300);
   }
 }
-function loadNext(){
-  if(loadQueue.length===0||isLoading)return;
-  isLoading=true;
-  createPlayer(loadQueue.shift());
-}
-function onState(e,idx){
-  var btn=document.getElementById("btn-"+idx);
-  var thumb=document.getElementById("thumb-"+idx);
-  if(e.data===1){
-    btn.classList.add("hide");
-    thumb.classList.add("hide");
-    startMon(idx);
-  }else if(e.data===2||e.data===0||e.data===-1){
-    btn.classList.remove("hide");
-    stopMon();
+function changeMode(index,mode){
+  var slide=document.getElementById("slide-"+index);
+  slide.className="swiper-slide mode-"+mode;
+  modes[index]=mode;
+  var buttons=slide.querySelectorAll(".mode-btn");
+  for(var i=0;i<buttons.length;i++){
+    buttons[i].classList.toggle("active",buttons[i].getAttribute("data-mode")===mode);
   }
 }
-function init(){
-  var w=document.getElementById("wrap");
-  for(var i=0;i<list.length;i++){
-    var v=list[i];
-    activeSegments[i]=0;currentModes[i]=v.mode;lastTimes[i]=0;playerReady[i]=false;
-    var d=document.createElement("div");
-    d.className="swiper-slide "+v.mode;d.id="slide-"+i;
-    var imgUrl=v.poster||"https://img.youtube.com/vi/"+v.id+"/hqdefault.jpg";
-    d.innerHTML='<div class="thumb" id="thumb-'+i+'"><img src="'+imgUrl+'"></div>';
-    d.innerHTML+=v.topText?'<div class="top-header">'+v.topText+'</div>':'';
-    d.innerHTML+='<div class="vid-wrap"><div class="player-wrap"><div id="p-'+i+'"></div></div>';
-    d.innerHTML+='<div class="mask-top"></div><div class="mask-bottom"><div class="block-area"></div><div class="pass-area"></div></div></div>';
-    d.innerHTML+='<div class="smart-layer" data-idx="'+i+'"></div>';
-    d.innerHTML+='<div class="play-btn" id="btn-'+i+'" data-idx="'+i+'"></div>';
-    d.innerHTML+='<div class="mode-btns">';
-    d.innerHTML+='<div class="mode-btn'+(v.mode==="fit"?" active":"")+'" data-idx="'+i+'" data-mode="fit">'+iconFit+'</div>';
-    d.innerHTML+='<div class="mode-btn'+(v.mode==="square"?" active":"")+'" data-idx="'+i+'" data-mode="square">'+iconSquare+'</div>';
-    d.innerHTML+='<div class="mode-btn'+(v.mode==="full"?" active":"")+'" data-idx="'+i+'" data-mode="full">'+iconFull+'</div>';
-    d.innerHTML+='</div>';
-    d.innerHTML+='<div class="badge">'+v.title+'</div>';
-    w.appendChild(d);
+document.addEventListener("click",function(e){
+  var modeBtn=e.target.closest(".mode-btn");
+  if(modeBtn){
+    var idx=parseInt(modeBtn.getAttribute("data-index"));
+    var mode=modeBtn.getAttribute("data-mode");
+    changeMode(idx,mode);
+    return;
   }
-  document.addEventListener("click",handleClick);
+  var playBtn=e.target.closest(".play-btn");
+  var clickLayer=e.target.closest(".click-layer");
+  var target=playBtn||clickLayer;
+  if(!target)return;
+  var idx=parseInt(target.getAttribute("data-index"));
+  var player=players[idx];
+  if(!player||!ready[idx])return;
+  if(playBtn||!started){
+    started=true;
+    var seg=segments[idx];
+    var startTime=DATA[idx].ranges[seg].s;
+    if(startTime>0)player.seekTo(startTime,true);
+    player.playVideo();
+    return;
+  }
+  var state=player.getPlayerState();
+  if(state===1){
+    player.pauseVideo();
+  }else{
+    player.playVideo();
+  }
+});
+function initSwiper(){
   swiper=new Swiper(".swiper",{
     direction:"vertical",
     on:{
       slideChangeTransitionStart:function(){
-        for(var k in players){
-          try{
-            if(players[k]&&players[k].getPlayerState()===1)lastTimes[k]=players[k].getCurrentTime();
-            if(players[k])players[k].pauseVideo();
-          }catch(err){}
+        stopMonitor();
+        for(var i=0;i<DATA.length;i++){
+          if(players[i]&&ready[i]){
+            try{players[i].pauseVideo();}catch(e){}
+          }
         }
-        stopMon();
       },
       slideChangeTransitionEnd:function(){
+        if(!started)return;
         var idx=swiper.activeIndex;
-        if(userInteracted&&playerReady[idx]){
-          doPlay(idx,lastTimes[idx]===0);
+        if(players[idx]&&ready[idx]){
+          var seg=segments[idx];
+          var startTime=DATA[idx].ranges[seg].s;
+          if(startTime>0)players[idx].seekTo(startTime,true);
+          players[idx].playVideo();
         }
       }
     }
   });
 }
-function handleClick(e){
-  var modeBtn=e.target.closest(".mode-btn");
-  if(modeBtn){
-    setMode(parseInt(modeBtn.dataset.idx),modeBtn.dataset.mode);
-    return;
-  }
-  var playBtn=e.target.closest(".play-btn");
-  var layer=e.target.closest(".smart-layer");
-  var idx=-1;
-  if(playBtn)idx=parseInt(playBtn.dataset.idx);
-  else if(layer)idx=parseInt(layer.dataset.idx);
-  if(idx<0)return;
-  if(!playerReady[idx])return;
-  var p=players[idx];
-  if(!p)return;
-  if(playBtn||!userInteracted){
-    userInteracted=true;
-    var seg=activeSegments[idx]||0;
-    var startTime=list[idx].ranges[seg].s;
-    if(startTime>0)p.seekTo(startTime,true);
-    p.playVideo();
-    return;
-  }
-  if(layer){
-    if(p.getPlayerState()===1){
-      lastTimes[idx]=p.getCurrentTime();
-      p.pauseVideo();
-    }else{
-      p.playVideo();
-    }
-  }
-}
-function doPlay(idx,seekToStart){
-  if(!playerReady[idx])return;
-  var p=players[idx];
-  if(!p)return;
-  var seg=activeSegments[idx]||0;
-  var startTime=list[idx].ranges[seg].s;
-  if(seekToStart&&startTime>0)p.seekTo(startTime,true);
-  else if(lastTimes[idx]>0)p.seekTo(lastTimes[idx],true);
-  p.playVideo();
-}
-function setMode(idx,mode){
-  var slide=document.getElementById("slide-"+idx);
-  slide.classList.remove("full","fit","square");
-  slide.classList.add(mode);
-  currentModes[idx]=mode;
-  var btns=slide.querySelectorAll(".mode-btn");
-  for(var j=0;j<btns.length;j++){
-    btns[j].classList.toggle("active",btns[j].dataset.mode===mode);
-  }
-}
-function startMon(idx){
-  stopMon();
-  timer=setInterval(function(){
-    var p=players[idx];
-    if(!p||typeof p.getCurrentTime!=="function")return;
-    var curr=p.getCurrentTime();
-    var dur=p.getDuration();
-    var seg=activeSegments[idx]||0;
-    var r=list[idx].ranges[seg];
-    var endTime=(r.e>0)?r.e:dur;
-    if(endTime>0&&curr>=endTime-0.3){
-      if(seg<list[idx].ranges.length-1){
-        activeSegments[idx]=seg+1;
-        lastTimes[idx]=0;
-        p.seekTo(list[idx].ranges[seg+1].s,true);
-      }else{
-        goNext();
-      }
-    }
-  },100);
-}
-function stopMon(){if(timer){clearInterval(timer);timer=null;}}
-function goNext(){
-  stopMon();
-  var curr=swiper.activeIndex;
-  lastTimes[curr]=0;
-  if(curr<list.length-1){
-    swiper.slideNext();
-  }else{
-    for(var i=0;i<list.length;i++){activeSegments[i]=0;lastTimes[i]=0;}
-    swiper.slideTo(0,300);
-    setTimeout(function(){
-      var ths=document.querySelectorAll(".thumb");
-      for(var x=0;x<ths.length;x++)ths[x].classList.remove("hide");
-      var bts=document.querySelectorAll(".play-btn");
-      for(var y=0;y<bts.length;y++)bts[y].classList.remove("hide");
-    },400);
-  }
-}
-init();
+createSlides();
+initSwiper();
+loadYouTubeAPI();
 </script>
 </body>
 </html>
